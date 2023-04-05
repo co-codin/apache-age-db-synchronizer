@@ -23,7 +23,7 @@ class Migration(Base):
     )
 
     tables = relationship('Table')
-    prev_migration = relationship('Migration', uselist=False, back_populates='next_migration')
+    prev_migration = relationship('Migration', remote_side=[id], uselist=False, backref='next_migration')
 
 
 class Table(Base):
