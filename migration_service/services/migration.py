@@ -2,9 +2,10 @@ import logging
 import uuid
 import psycopg
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession
-from typing import Set, List, Sequence
+from typing import Set, List, Sequence, Union
 
 from migration_service.models import migrations
 from migration_service.schemas import tables
@@ -39,9 +40,23 @@ async def add_migration(
     await _alter_tables(tables_to_alter, migration, migration_in.db_source, graph_session)
     await _delete_tables(tables_to_delete, migration)
 
+    last_migration = await _get_last_migration(session)
+    if last_migration is not None:
+        logger.info(f"last migration: {last_migration}")
+        logger.info(f"last migration name: {last_migration.name}")
+        logger.info(f"last migration created_at: {last_migration.created_at}")
+        migration.prev_migration = last_migration
+
     session.add(migration)
     await session.commit()
     return guid
+
+
+async def _get_last_migration(session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:
+    last_migration = await session.execute(
+        select(migrations.Migration).order_by(migrations.Migration.created_at.desc()).limit(1)
+    )
+    return last_migration.scalars().first()
 
 
 async def _get_db_tables(db_source: str) -> Set[str]:
@@ -79,7 +94,7 @@ async def _create_tables(table_names: Set[str], migration: migrations.Migration,
 
     for db_table in dataclass_db_tables:
         table = migrations.Table(new_name=db_table.name)
-        for field_name, field_type in db_table.fields.items():
+        for field_name, field_type in db_table.field_to_type.items():
             table.fields.append(
                 migrations.Field(new_name=field_name, new_type=field_type)
             )
@@ -126,8 +141,8 @@ def _do_tables_altering(
 
             migration.tables.append(table)
 
-            db_table_field_names = set(db_table.fields.keys())
-            neo4j_table_field_names = set(neo4j_table.fields.keys())
+            db_table_field_names = set(db_table.field_to_type.keys())
+            neo4j_table_field_names = set(neo4j_table.field_to_type.keys())
 
             fields_to_delete = neo4j_table_field_names - db_table_field_names
             fields_to_create = db_table_field_names - neo4j_table_field_names
@@ -140,7 +155,7 @@ def _do_tables_altering(
 
 def _create_fields(fields_to_create: Set[str], db_table: tables.Table, table: migrations.Table):
     for f_to_create in fields_to_create:
-        field = migrations.Field(new_name=f_to_create, new_type=db_table.fields[f_to_create])
+        field = migrations.Field(new_name=f_to_create, new_type=db_table.field_to_type[f_to_create])
         table.fields.append(field)
 
 
@@ -148,8 +163,8 @@ def _alter_fields(
         fields_to_alter: Set[str], db_table: tables.Table, neo4j_table: tables.Table, table: migrations.Table
 ):
     for f_to_alter in fields_to_alter:
-        db_type = db_table.fields[f_to_alter]
-        neo4j_type = neo4j_table.fields[f_to_alter]
+        db_type = db_table.field_to_type[f_to_alter]
+        neo4j_type = neo4j_table.field_to_type[f_to_alter]
         if db_type == neo4j_type:
             continue
         else:
@@ -159,7 +174,7 @@ def _alter_fields(
 
 def _delete_fields(fields_to_delete: Set[str], neo4j_table: tables.Table, table: migrations.Table):
     for f_to_delete in fields_to_delete:
-        field = migrations.Field(old_name=f_to_delete, old_type=neo4j_table.fields[f_to_delete])
+        field = migrations.Field(old_name=f_to_delete, old_type=neo4j_table.field_to_type[f_to_delete])
         table.fields.append(field)
 
 
@@ -169,16 +184,16 @@ def create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table
         return db_tables
 
     table_d = db_records[0][0]
-    db_tables.append(tables.Table(table_d))
+    db_tables.append(tables.Table(name=table_d))
 
     for record in db_records:
         if table_d == record[0]:
             field_name = record[1]
             field_type = record[2]
-            db_tables[-1].fields[field_name] = field_type
+            db_tables[-1].field_to_type[field_name] = field_type
         else:
             table_d = record[0]
-            db_tables.append(migrations.Table(tables.Table(table_d)))
+            db_tables.append(tables.Table(name=table_d))
     return db_tables
 
 
