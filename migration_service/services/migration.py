@@ -3,6 +3,7 @@ import uuid
 import psycopg
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession
 from typing import Set, List, Sequence, Union
@@ -49,6 +50,20 @@ async def add_migration(
     session.add(migration)
     await session.commit()
     return guid
+
+
+async def select_last_migration(session: SQLAlchemyAsyncSession):
+    last_migration = await session.execute(
+        select(migrations.Migration)
+        .options(selectinload(migrations.Migration.tables).selectinload(migrations.Table.fields))
+        .order_by(migrations.Migration.created_at.desc())
+        .limit(1)
+    )
+    last_migration = last_migration.scalars().first()
+    if last_migration is not None:
+        logger.info(f"last migration name: {last_migration.name}")
+        logger.info(f"last migration created_at: {last_migration.created_at}")
+        return last_migration.name
 
 
 async def _get_last_migration(session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:

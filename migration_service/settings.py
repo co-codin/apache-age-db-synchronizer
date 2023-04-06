@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     port: int = 8081
 
     # Logging constants
-    debug = True
+    debug = False
     log_dir: str = "/var/log/n3dwh/"
     log_name: str = "graph_db_migrater.log"
 
