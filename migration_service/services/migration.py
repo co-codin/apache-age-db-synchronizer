@@ -42,7 +42,6 @@ async def add_migration(
 
     last_migration = await _get_last_migration(session)
     if last_migration is not None:
-        logger.info(f"last migration: {last_migration}")
         logger.info(f"last migration name: {last_migration.name}")
         logger.info(f"last migration created_at: {last_migration.created_at}")
         migration.prev_migration = last_migration
