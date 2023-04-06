@@ -9,4 +9,4 @@ config_logger()
 
 
 if __name__ == "__main__":
-    uvicorn.run("migration_service.app:migration_app", host="0.0.0.0", port=settings.port, reload=settings.reload)
+    uvicorn.run("migration_service.app:migration_app", host="0.0.0.0", port=settings.port)
