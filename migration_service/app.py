@@ -9,7 +9,6 @@ from migration_service.errors import APIError
 
 logger = logging.getLogger(__name__)
 
-
 migration_app = FastAPI(
     title="Graph DB migrater",
     description="Migration service for graph database"

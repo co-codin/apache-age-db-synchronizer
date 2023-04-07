@@ -2,14 +2,19 @@ import logging
 import uuid
 import psycopg
 
+from typing import Set, List, Sequence, Union
+
+from fastapi import status, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession
-from typing import Set, List, Sequence, Union
 
 from migration_service.models import migrations
 from migration_service.schemas import tables
-from migration_service.schemas.migrations import MigrationIn
+from migration_service.schemas.migrations import (
+    MigrationIn, MigrationOut, TableToCreate, FieldToCreate, TableToAlter, FieldToAlter
+)
 from migration_service.settings import settings
 
 
@@ -51,6 +56,87 @@ async def add_migration(
     return guid
 
 
+async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) -> MigrationOut:
+    if guid:
+        migration = await _select_migration_by_guid(guid, session)
+    else:
+        migration = await _select_last_migration(session)
+
+    if migration is not None:
+        logger.info(f"migration name: {migration.name}")
+        logger.info(f"migration created_at: {migration.created_at}")
+        formatted_migration = _format_orm_migration(migration)
+        return formatted_migration
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+async def _select_migration_by_guid(guid: str, session: SQLAlchemyAsyncSession):
+    migration = await session.execute(
+        select(migrations.Migration)
+        .options(selectinload(migrations.Migration.tables).selectinload(migrations.Table.fields))
+        .filter(migrations.Migration.guid == guid)
+    )
+    return migration.scalars().first()
+
+
+async def _select_last_migration(session: SQLAlchemyAsyncSession):
+    migration = await session.execute(
+        select(migrations.Migration)
+        .options(selectinload(migrations.Migration.tables).selectinload(migrations.Table.fields))
+        .order_by(migrations.Migration.created_at.desc())
+        .limit(1)
+    )
+    return migration.scalars().first()
+
+
+def _format_orm_migration(migration: migrations.Migration) -> MigrationOut:
+    # Convert from ORM view to pydantic view
+    migration_out = MigrationOut(name=migration.name)
+    for table in migration.tables:
+        if table.old_name is None and table.new_name is not None:
+            # table to create
+            table_to_create = _format_table_to_create(table)
+            migration_out.tables_to_create.append(table_to_create)
+        elif table.old_name is not None and table.new_name is None:
+            # table to delete
+            migration_out.tables_to_delete.append(table.old_name)
+        elif table.old_name is not None and table.old_name == table.new_name:
+            # table to alter
+            table_to_alter = _format_table_to_alter(table)
+            migration_out.tables_to_alter.append(table_to_alter)
+    return migration_out
+
+
+def _format_table_to_create(table: migrations.Table) -> TableToCreate:
+    table_to_create = TableToCreate(name=table.new_name)
+    for field in table.fields:
+        field_to_create = FieldToCreate(name=field.new_name, db_type=field.new_type)
+        table_to_create.fields.append(field_to_create)
+    return table_to_create
+
+
+def _format_table_to_alter(table: migrations.Table) -> TableToAlter:
+    table_to_alter = TableToAlter(name=table.new_name)
+    for field in table.fields:
+        if field.old_name is None and field.new_name is not None:
+            # Field to create
+            table_to_alter.fields_to_create.append(
+                FieldToCreate(name=field.new_name, db_type=field.new_type)
+            )
+        elif field.old_name is not None and field.new_name is None:
+            # Field to delete
+            table_to_alter.fields_to_delete.append(field.old_name)
+        elif field.old_name is not None and field.old_name == field.new_name:
+            # Field to alter
+            table_to_alter.fields_to_alter.append(
+                FieldToAlter(
+                    name=field.new_name, old_type=field.old_type, new_type=field.new_type
+                )
+            )
+    return table_to_alter
+
+
 async def _get_last_migration(session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:
     last_migration = await session.execute(
         select(migrations.Migration).order_by(migrations.Migration.created_at.desc()).limit(1)
@@ -89,7 +175,7 @@ async def _create_tables(table_names: Set[str], migration: migrations.Migration,
         return
 
     records = await _get_table_col_type(table_names, db_source)
-    dataclass_db_tables = create_dataclass_tables(records)
+    dataclass_db_tables = _create_dataclass_tables(records)
 
     for db_table in dataclass_db_tables:
         table = migrations.Table(new_name=db_table.name)
@@ -111,8 +197,8 @@ async def _alter_tables(
     logger.info(f'db records to alter: {db_records}')
     logger.info(f'neo4j records to alter: {neo4j_records}')
 
-    dataclass_db_tables = create_dataclass_tables(db_records)
-    dataclass_neo4j_tables = create_dataclass_tables(neo4j_records)
+    dataclass_db_tables = _create_dataclass_tables(db_records)
+    dataclass_neo4j_tables = _create_dataclass_tables(neo4j_records)
 
     logger.info(f'dataclass db tables to alter: {dataclass_db_tables}')
     logger.info(f'dataclass neo4j tables to alter: {dataclass_neo4j_tables}')
@@ -177,7 +263,7 @@ def _delete_fields(fields_to_delete: Set[str], neo4j_table: tables.Table, table:
         table.fields.append(field)
 
 
-def create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table]:
+def _create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table]:
     db_tables: List[tables.Table] = []
     if not db_records:
         return db_tables
