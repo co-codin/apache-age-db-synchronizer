@@ -2,13 +2,13 @@ import logging
 import uuid
 import psycopg
 
-from typing import Set, List, Sequence, Union
+from typing import Set, List, Sequence, Union, Iterable
 
 from fastapi import status, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
-from neo4j import AsyncSession as Neo4jAsyncSession
+from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
 from migration_service.models import migrations
 from migration_service.schemas import tables
@@ -16,6 +16,7 @@ from migration_service.schemas.migrations import (
     MigrationIn, MigrationOut, TableToCreate, FieldToCreate, TableToAlter, FieldToAlter
 )
 from migration_service.settings import settings
+from migration_service.cql_queries.node_queries import delete_nodes_query
 
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,91 @@ async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) ->
         return formatted_migration
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+async def apply_migration(
+        session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession
+):
+    """
+    1) Insert tables
+    2) Alter tables
+    3) Delete tables
+    """
+    last_migration_id = await _select_last_migration_id(session)
+    await _apply_delete_tables(last_migration_id, session, graph_session)
+
+
+async def _select_last_migration_id(session: SQLAlchemyAsyncSession):
+    last_migration_id = await session.execute(
+        select(migrations.Migration.id)
+        .order_by(migrations.Migration.created_at.desc())
+        .limit(1)
+    )
+    return last_migration_id.scalars().first()
+
+
+async def _apply_create_tables(last_migration_id: int, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession):
+    tables_to_create = await session.execute(
+        select(migrations.Table)
+        .options(selectinload(migrations.Table.fields))
+        .filter(
+            and_(
+                migrations.Table.migration_id == last_migration_id,
+                migrations.Table.old_name.is_(None),
+                migrations.Table.new_name.is_not(None)
+            )
+        )
+    )
+    tables_to_create = tables_to_create.scalars().all()
+    return tables_to_create
+
+
+async def _apply_alter_tables(last_migration_id: int, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession):
+    tables_to_alter = await session.execute(
+        select(migrations.Table)
+        .options(selectinload(migrations.Table.fields))
+        .filter(
+            and_(
+                migrations.Table.migration_id == last_migration_id,
+                migrations.Table.old_name.is_not(None),
+                migrations.Table.old_name == migrations.Table.new_name
+            )
+        )
+    )
+    tables_to_alter = tables_to_alter.scalars().all()
+    return tables_to_alter
+
+
+async def _apply_delete_tables(last_migration_id: int, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession):
+    tables_to_delete = await session.execute(
+        select(migrations.Table.old_name)
+        .filter(
+            and_(
+                migrations.Table.migration_id == last_migration_id,
+                migrations.Table.old_name.is_not(None),
+                migrations.Table.new_name.is_(None)
+            )
+        )
+    )
+    tables_to_delete = tables_to_delete.scalars().all()
+    await graph_session.execute_write(_delete_nodes_tx, tables_to_delete)
+
+
+async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str]):
+    for node_batch in _to_batches(nodes_to_delete):
+        logger.info(f'nodes_batch: {node_batch}')
+        await tx.run(delete_nodes_query, node_names=node_batch)
+
+
+def _to_batches(records: Iterable[str], size: int = 50):
+    batches = []
+    for rec in records:
+        batches.append(rec)
+        if len(batches) >= size:
+            yield batches
+            batches.clear()
+    if batches:
+        yield batches
 
 
 async def _select_migration_by_guid(guid: str, session: SQLAlchemyAsyncSession):
