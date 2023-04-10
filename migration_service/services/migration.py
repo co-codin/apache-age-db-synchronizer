@@ -16,7 +16,7 @@ from migration_service.schemas.migrations import (
     MigrationIn, MigrationOut, TableToCreate, FieldToCreate, TableToAlter, FieldToAlter
 )
 from migration_service.settings import settings
-from migration_service.cql_queries.node_queries import delete_nodes_query
+from migration_service.cql_queries.node_queries import delete_nodes_query, delete_link_query
 
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,8 @@ async def apply_migration(
     3) Delete tables
     """
     last_migration_id = await _select_last_migration_id(session)
+    if not last_migration_id:
+        return
     await _apply_delete_tables(last_migration_id, session, graph_session)
 
 
@@ -137,13 +139,21 @@ async def _apply_delete_tables(last_migration_id: int, session: SQLAlchemyAsyncS
         )
     )
     tables_to_delete = tables_to_delete.scalars().all()
-    await graph_session.execute_write(_delete_nodes_tx, tables_to_delete)
+    hubs_sats_to_delete = (
+        table
+        for table in tables_to_delete
+        if table.endswith('_hub') or table.endswith('_sat')
+    )
+    links_to_delete = (table for table in tables_to_delete if table.endswith('_link'))
+
+    await graph_session.execute_write(_delete_nodes_tx, hubs_sats_to_delete, delete_nodes_query)
+    await graph_session.execute_write(_delete_nodes_tx, links_to_delete, delete_link_query)
 
 
-async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str]):
+async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str], delete_query: str):
     for node_batch in _to_batches(nodes_to_delete):
         logger.info(f'nodes_batch: {node_batch}')
-        await tx.run(delete_nodes_query, node_names=node_batch)
+        await tx.run(delete_query, node_names=node_batch)
 
 
 def _to_batches(records: Iterable[str], size: int = 50):
@@ -248,7 +258,7 @@ async def _get_neo4j_tables(graph_session: Neo4jAsyncSession, db_source: str) ->
     res = await graph_session.run(
         "MATCH (obj) "
         "WITH split(obj.db, $db_source + '.')[1] as db_name, obj "
-        "WHERE (obj:Entity OR obj:Sat OR obj:Link) and obj.db STARTS WITH $db_source "
+        "WHERE (obj:Entity OR obj:Sat OR (obj:Link AND obj.main = True)) AND obj.db STARTS WITH $db_source "
         "RETURN db_name as name;",
         db_source=db_source
     )

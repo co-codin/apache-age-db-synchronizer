@@ -4,7 +4,7 @@ from neo4j import AsyncSession as Neo4jAsyncSession
 
 from migration_service.services.migration import add_migration, select_migration, apply_migration
 from migration_service.dependencies import db_session, neo4j_session
-from migration_service.schemas.migrations import MigrationIn, MigrationOut, MigrationPattern
+from migration_service.schemas.migrations import MigrationIn, MigrationOut
 
 
 router = APIRouter(
