@@ -37,3 +37,7 @@ class MigrationOut(BaseModel):
     tables_to_create: List[TableToCreate] = []
     tables_to_alter: List[TableToAlter] = []
     tables_to_delete: List[str] = []
+
+
+class MigrationPattern(BaseModel):
+    fk_pattern: str = r'^(id*)(.*)_hash_fkey'
