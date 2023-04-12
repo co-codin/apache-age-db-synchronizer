@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     }
 
     # Database constants
-    db_connection_string: str = os.environ.get('DWH_GRAPH_DB_CONNECTION_STRING', 'postgresql+asyncpg://postgres:dwh@db.lan:5432/graph_migrations')
-    db_migration_connection_string: str = os.environ('DWH_GRAPH_DB_MIGRATION_STRING', 'postgresql+psycopg2://postgres:dwh@db.lan:5432/graph_migrations')
+    db_connection_string: str = os.environ.get('DWH_GRAPH_DB_CONNECTION_STRING', 'postgresql+asyncpg://postgres:dwh'
+                                                                                 '@db.lan:5432/graph_migrations')
+    db_migration_connection_string: str = os.environ.get('DWH_GRAPH_DB_MIGRATION_STRING',
+                                                         'postgresql+psycopg2://postgres:dwh@db.lan:5432'
+                                                         '/graph_migrations')
 
     # Neo4j constants
     neo4j_connection_string: str = os.environ.get('DWH_GRAPH_DB_NEO4J_CONNECTION_STRING', 'bolt://graphdb.lan:7687')
