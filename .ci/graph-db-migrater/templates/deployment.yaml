@@ -28,7 +28,7 @@ spec:
             - name: DWH_GRAPH_DB_MIGRATER_DB_MIGRATION_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
-                  name: { { include "graph-db-migrater.fullname" . } }-secret
+                  name: {{ include "graph-db-migrater.fullname" . }}-secret
                   key: dwh_graph_db_migrater_db_migration_connection_string
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -41,9 +41,9 @@ spec:
         - name: {{ .Chart.Name }}
           envFrom:
             - secretRef:
-                name: { { include "graph-db-migrater.fullname" . } }-secret
+                name: {{ include "graph-db-migrater.fullname" . }}-secret
             - configMapRef:
-            name: { { include "graph-db-migrater.fullname" . } }-configmap
+                name: {{ include "graph-db-migrater.fullname" . }}-configmap
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
