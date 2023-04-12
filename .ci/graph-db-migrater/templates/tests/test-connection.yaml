@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "graph-db-migrater.fullname" . }}-test-connection"
+  labels:
+    {{- include "graph-db-migrater.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "graph-db-migrater.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

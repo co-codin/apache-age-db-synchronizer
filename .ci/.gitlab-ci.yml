@@ -1,0 +1,45 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_REPO: repo.n3zdrav.ru:18444
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  environment:
+    name: dev
+  before_script:
+    - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor --dockerfile=prod.dockerfile --context=dir://. --destination=$DOCKER_REPO/$CI_PROJECT_NAME:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
+
+build-migrations:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  environment:
+    name: dev
+  before_script:
+    - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor --dockerfile=.ci/Dockerfile.migrations --context=dir://. --destination=$DOCKER_REPO/$CI_PROJECT_NAME-migrations:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
+
+deploy:
+    stage: deploy
+    image:
+        name: alpine/helm:3.11.2
+        entrypoint:
+          - ""
+    environment:
+        name: dev
+    before_script:
+      - mkdir -p /root/.kube
+      - echo $KUBE_CONFIG | base64 -d > /root/.kube/config
+    script:
+        - helm upgrade --install -n smartdwh --set "secrets.DWH_GRAPH_DB_SOURCE=$DWH_GRAPH_DB_SOURCE" --set "secrets.DWH_GRAPH_DB_CONNECTION_STRING=$DWH_GRAPH_DB_CONNECTION_STRING" --set "secrets.DWH_GRAPH_DB_MIGRATION_STRING=$DWH_GRAPH_DB_MIGRATION_STRING" --set "secrets.DWH_GRAPH_DB_NEO4J_CONNECTION_STRING=$DWH_GRAPH_DB_NEO4J_CONNECTION_STRING" --set "secrets.DWH_GRAPH_DB_NEO4J_CONNECTION_USER=$DWH_GRAPH_DB_NEO4J_CONNECTION_USER" --set "secrets.DWH_GRAPH_DB_NEO4J_CONNECTION_PASSWORD=$DWH_GRAPH_DB_NEO4J_CONNECTION_PASSWORD"--set "image.tag=$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA" --set "image.repository=$DOCKER_REPO/$CI_PROJECT_NAME" $CI_PROJECT_NAME ./.ci/$CI_PROJECT_NAME
