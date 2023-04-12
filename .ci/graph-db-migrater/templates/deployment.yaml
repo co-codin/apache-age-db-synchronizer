@@ -25,11 +25,11 @@ spec:
           image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
           command: [ 'alembic', 'upgrade', 'head' ]
           env:
-            - name: DWH_GRAPH_DB_MIGRATER_DB_MIGRATION_CONNECTION_STRING
+            - name: DWH_GRAPH_DB_MIGRATION_STRING
               valueFrom:
                 secretKeyRef:
                   name: {{ include "graph-db-migrater.fullname" . }}-secret
-                  key: dwh_graph_db_migrater_db_migration_connection_string
+                  key: DWH_GRAPH_DB_MIGRATION_STRING
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
