@@ -12,13 +12,13 @@ def create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table
     db_tables.append(tables.Table(name=table_d))
 
     for record in db_records:
-        if table_d == record[0]:
-            field_name = record[1]
-            field_type = record[2]
-            db_tables[-1].field_to_type[field_name] = field_type
-        else:
+        if table_d != record[0]:
             table_d = record[0]
             db_tables.append(tables.Table(name=table_d))
+
+        field_name = record[1]
+        field_type = record[2]
+        db_tables[-1].field_to_type[field_name] = field_type
     return db_tables
 
 

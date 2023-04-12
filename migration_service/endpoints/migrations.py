@@ -5,7 +5,7 @@ from neo4j import AsyncSession as Neo4jAsyncSession
 from migration_service.crud.migration import add_migration, select_migration
 from migration_service.services.migration import apply_migration
 from migration_service.dependencies import db_session, neo4j_session
-from migration_service.schemas.migrations import MigrationIn, MigrationOut
+from migration_service.schemas.migrations import MigrationIn, MigrationOut, MigrationPattern
 
 
 router = APIRouter(
@@ -37,7 +37,8 @@ async def get_last_migration(session: SQLAlchemyAsyncSession = Depends(db_sessio
 
 @router.post('/apply')
 async def migrate(
+        migration_pattern: MigrationPattern,
         session: SQLAlchemyAsyncSession = Depends(db_session),
         graph_session: Neo4jAsyncSession = Depends(neo4j_session)
 ):
-    await apply_migration(session, graph_session)
+    await apply_migration(migration_pattern, session, graph_session)

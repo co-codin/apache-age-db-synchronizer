@@ -12,3 +12,7 @@ class NoNeo4jConnection(APIError):
 
     def __str__(self):
         return f"No connection with {self._neo4j_conn_string}"
+
+
+class MoreThanFieldsMatchFKPattern(Exception):
+    ...
