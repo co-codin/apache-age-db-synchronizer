@@ -1,3 +1,6 @@
+import re
+from typing import Tuple
+
 from fastapi import status
 
 
@@ -14,5 +17,10 @@ class NoNeo4jConnection(APIError):
         return f"No connection with {self._neo4j_conn_string}"
 
 
-class MoreThanFieldsMatchFKPattern(Exception):
-    ...
+class MoreThanTwoFieldsMatchFKPattern(Exception):
+    def __init__(self, matched_fks: Tuple[str, ...], fk_pattern: str):
+        self._matched_fks = matched_fks
+        self._fk_pattern = fk_pattern
+
+    def __str__(self):
+        return f"More than 2 fields: {self._matched_fks} match the following fk pattern: {self._fk_pattern}"

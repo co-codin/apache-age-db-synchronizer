@@ -9,14 +9,14 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
-from migration_service.errors import MoreThanFieldsMatchFKPattern
+from migration_service.cql_queries.sat_queries import create_sats_query, create_sats_with_hubs_query
+from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
 from migration_service.models import migrations
 from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration
 from migration_service.services.apply_migration_formatter import format_orm_migration
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches
-
+from migration_service.utils.migration_utils import to_batches, get_table_name
 
 from migration_service.cql_queries.node_queries import delete_nodes_query
 from migration_service.cql_queries.hub_queries import create_hubs_query
@@ -55,13 +55,42 @@ async def _apply_create_tables(
         graph_session: Neo4jAsyncSession
 ):
     hub_dicts_to_create = (hub.dict() for hub in apply_migration.hubs_to_create)
+
     await graph_session.execute_write(_add_hubs_tx, hub_dicts_to_create, apply_migration.db_source)
     await graph_session.execute_write(_add_links_tx, apply_migration, migration_pattern)
+    await graph_session.execute_write(_add_sats_tax, apply_migration, migration_pattern)
 
 
 async def _add_hubs_tx(tx: AsyncManagedTransaction, hubs_to_create: Iterable[HubToCreate], db_source: str):
     for hub_batch in to_batches(hubs_to_create):
         await tx.run(create_hubs_query, hubs=hub_batch, db_source=db_source)
+
+
+async def _add_sats_tax(
+        tx: AsyncManagedTransaction, apply_migration: ApplyMigration, migration_pattern: MigrationPattern
+):
+    sats_with_hub = []
+    sats_without_hub = []
+
+    sat_pattern = re.compile(migration_pattern.sat_pattern)
+    tables_to_pks = apply_migration.tables_to_pks
+
+    for sat in apply_migration.sats_to_create:
+        table_prefix = sat_pattern.search(sat.name)
+        if table_prefix:
+            for table_prefix_group in table_prefix.groups():
+                table_name = get_table_name(table_prefix_group, tables_to_pks.keys())
+                if table_name:
+                    sat.link.ref_table = table_name
+                    sat.link.ref_table_pk = tables_to_pks[table_name]
+                    sats_with_hub.append(sat.dict())
+                else:
+                    sats_without_hub.append(sat.dict(exclude={'link'}))
+
+    for sat_batch in to_batches(sats_with_hub):
+        await tx.run(create_sats_with_hubs_query, sats=sat_batch, db_source=apply_migration.db_source)
+    for sat_batch in to_batches(sats_without_hub):
+        await tx.run(create_sats_query, sats=sat_batch, db_source=apply_migration.db_source)
 
 
 async def _add_links_tx(
@@ -73,21 +102,20 @@ async def _add_links_tx(
     links_without_hubs = []
 
     fk_pattern_compiled = re.compile(migration_pattern.fk_pattern)
-
-    hub_names_to_hub_pks = apply_migration.hub_names_to_hub_pks
-    logger.info(f'hubs: {apply_migration.hubs_to_create}')
-    logger.info(f'hub_names_to_hub_pks {hub_names_to_hub_pks}')
+    tables_to_pks = apply_migration.tables_to_pks
 
     for link in apply_migration.links_to_create:
-        link.match_link_fkeys(fk_pattern_compiled, tuple(hub_names_to_hub_pks.keys()))
+        link.match_link_fkeys(fk_pattern_compiled, tables_to_pks.keys())
         try:
-            link.main_link.ref_table_pk = hub_names_to_hub_pks[link.main_link.hub]
-            link.paired_link.ref_table_pk = hub_names_to_hub_pks[link.paired_link.hub]
+            link.main_link.ref_table_pk = tables_to_pks[link.main_link.ref_table]
+            link.paired_link.ref_table_pk = tables_to_pks[link.paired_link.ref_table]
             logger.info(f'link {link}')
             links_with_hubs.append(link.dict())
-        except (KeyError, AttributeError, MoreThanFieldsMatchFKPattern) as exc:
+        except (KeyError, AttributeError, MoreThanTwoFieldsMatchFKPattern) as exc:
             logger.info(exc)
-            links_without_hubs.append(link.dict())
+            links_without_hubs.append(
+                link.dict(exclude={'main_link', 'paired_link'})
+            )
 
     for link_batch in to_batches(links_with_hubs):
         await tx.run(create_links_with_hubs_query, links=link_batch, db_source=apply_migration.db_source)

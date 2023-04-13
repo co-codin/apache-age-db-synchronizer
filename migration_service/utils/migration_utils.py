@@ -1,4 +1,4 @@
-from typing import Iterable, Sequence, List
+from typing import Iterable, Sequence, List, Optional
 
 from migration_service.schemas import tables
 
@@ -31,3 +31,17 @@ def to_batches(records: Iterable, size: int = 50):
             batches.clear()
     if batches:
         yield batches
+
+
+def get_table_name(table_prefix: str, table_names: Iterable[str]) -> Optional[str]:
+    if not table_prefix:
+        return
+
+    count = 0
+    possible_table_name = None
+    for table in table_names:
+        if table_prefix in table:
+            count += 1
+            possible_table_name = table
+    if count == 1:
+        return possible_table_name
