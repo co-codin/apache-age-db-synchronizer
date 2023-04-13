@@ -1,14 +1,12 @@
 import re
 
 from datetime import datetime
-from typing import List
 
 from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
 from migration_service.database import Base
-from migration_service.schemas.migrations import OneWayLink
 
 
 class Migration(Base):

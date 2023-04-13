@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Iterable
 from pydantic import BaseModel
 
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.utils.migration_utils import get_table_name
+from migration_service.utils.migration_utils import match_fk_to_table
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +54,11 @@ class MigrationOut(BaseModel):
 class MigrationPattern(BaseModel):
     hub_prefix: str = r'.*'
     hub_pattern = f'{hub_prefix}_hub'
-    hub_pk_pattern = "hash_key"
 
-    sat_pattern = f"^({hub_prefix})*_?({hub_prefix})*_?({hub_prefix})_sat$"
-    fk_pattern = f"^(id)?({hub_prefix})_hash_fkey$"
+    pk_pattern = "hash_key"
+
+    fk_table = f"^({hub_prefix})_?({hub_prefix})_?({hub_prefix})_sat$"
+    fk_pattern = f"^(?:id)?({hub_prefix})_hash_fkey$"
 
 
 class HubToCreate(TableToCreate):
@@ -81,15 +82,15 @@ class LinkToCreate(TableToCreate):
 
     pk: Optional[str]
 
-    def match_link_fkeys(self, fk_pattern: re.Pattern, tables: Iterable[str]):
+    def match_fks_to_fk_tables(self, fk_pattern: re.Pattern, tables: Iterable[str]):
         for field in self.fields:
             table_prefix = fk_pattern.search(field.name)
             if table_prefix and not self.main_link:
-                table_name = get_table_name(table_prefix.group(2), tables)
+                table_name = match_fk_to_table(table_prefix, tables)
                 if table_name:
                     self.main_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif table_prefix and self.main_link and not self.paired_link:
-                table_name = get_table_name(table_prefix.group(2), tables)
+                table_name = match_fk_to_table(table_prefix, tables)
                 if table_name:
                     self.paired_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif not table_prefix:

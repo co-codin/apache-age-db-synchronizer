@@ -1,3 +1,4 @@
+import re
 from typing import Iterable, Sequence, List, Optional
 
 from migration_service.schemas import tables
@@ -33,7 +34,7 @@ def to_batches(records: Iterable, size: int = 50):
         yield batches
 
 
-def get_table_name(table_prefix: str, table_names: Iterable[str]) -> Optional[str]:
+def get_table_name_by_prefix(table_prefix: str, table_names: Iterable[str]) -> Optional[str]:
     if not table_prefix:
         return
 
@@ -45,3 +46,13 @@ def get_table_name(table_prefix: str, table_names: Iterable[str]) -> Optional[st
             possible_table_name = table
     if count == 1:
         return possible_table_name
+
+
+def match_fk_to_table(table_prefix: re.Match, tables: Iterable[str]) -> Optional[str]:
+    if not table_prefix:
+        return
+
+    for i in range(1, len(table_prefix.groups()) + 1):
+        table_name = get_table_name_by_prefix(table_prefix.group(i), tables)
+        if table_name:
+            return table_name

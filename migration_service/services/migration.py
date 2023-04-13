@@ -16,7 +16,7 @@ from migration_service.schemas.migrations import MigrationPattern, HubToCreate, 
 from migration_service.services.apply_migration_formatter import format_orm_migration
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches, get_table_name
+from migration_service.utils.migration_utils import to_batches, match_fk_to_table
 
 from migration_service.cql_queries.node_queries import delete_nodes_query
 from migration_service.cql_queries.hub_queries import create_hubs_query
@@ -40,7 +40,7 @@ async def apply_migration(
         return
 
     last_migration = format_orm_migration(
-        last_migration, migration_pattern.fk_pattern, migration_pattern.hub_pk_pattern
+        last_migration, migration_pattern.fk_pattern, migration_pattern.pk_pattern
     )
 
     logger.info(f"last migration: {last_migration}")
@@ -72,20 +72,18 @@ async def _add_sats_tax(
     sats_with_hub = []
     sats_without_hub = []
 
-    sat_pattern = re.compile(migration_pattern.sat_pattern)
+    sat_pattern = re.compile(migration_pattern.fk_table)
     tables_to_pks = apply_migration.tables_to_pks
 
     for sat in apply_migration.sats_to_create:
         table_prefix = sat_pattern.search(sat.name)
-        if table_prefix:
-            for table_prefix_group in table_prefix.groups():
-                table_name = get_table_name(table_prefix_group, tables_to_pks.keys())
-                if table_name:
-                    sat.link.ref_table = table_name
-                    sat.link.ref_table_pk = tables_to_pks[table_name]
-                    sats_with_hub.append(sat.dict())
-                else:
-                    sats_without_hub.append(sat.dict(exclude={'link'}))
+        table_name = match_fk_to_table(table_prefix, tables_to_pks.keys())
+        if table_name:
+            sat.link.ref_table = table_name
+            sat.link.ref_table_pk = tables_to_pks[table_name]
+            sats_with_hub.append(sat.dict())
+        else:
+            sats_without_hub.append(sat.dict(exclude={'link'}))
 
     for sat_batch in to_batches(sats_with_hub):
         await tx.run(create_sats_with_hubs_query, sats=sat_batch, db_source=apply_migration.db_source)
@@ -105,14 +103,12 @@ async def _add_links_tx(
     tables_to_pks = apply_migration.tables_to_pks
 
     for link in apply_migration.links_to_create:
-        link.match_link_fkeys(fk_pattern_compiled, tables_to_pks.keys())
+        link.match_fks_to_fk_tables(fk_pattern_compiled, tables_to_pks.keys())
         try:
             link.main_link.ref_table_pk = tables_to_pks[link.main_link.ref_table]
             link.paired_link.ref_table_pk = tables_to_pks[link.paired_link.ref_table]
-            logger.info(f'link {link}')
             links_with_hubs.append(link.dict())
-        except (KeyError, AttributeError, MoreThanTwoFieldsMatchFKPattern) as exc:
-            logger.info(exc)
+        except (KeyError, AttributeError, MoreThanTwoFieldsMatchFKPattern):
             links_without_hubs.append(
                 link.dict(exclude={'main_link', 'paired_link'})
             )
