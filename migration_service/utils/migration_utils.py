@@ -38,21 +38,30 @@ def get_table_name_by_prefix(table_prefix: str, table_names: Iterable[str]) -> O
     if not table_prefix:
         return
 
-    count = 0
     possible_table_name = None
     for table in table_names:
-        if table_prefix in table:
-            count += 1
+        if table_prefix not in table:
+            continue
+        elif not possible_table_name:
             possible_table_name = table
-    if count == 1:
-        return possible_table_name
+        else:
+            return
+    return possible_table_name
 
 
-def match_fk_to_table(table_prefix: re.Match, tables: Iterable[str]) -> Optional[str]:
+def get_table_from_table_prefix_match(table_prefix: re.Match, tables: Iterable[str]) -> Optional[str]:
     if not table_prefix:
         return
 
+    possible_table_name = None
+
     for i in range(1, len(table_prefix.groups()) + 1):
         table_name = get_table_name_by_prefix(table_prefix.group(i), tables)
-        if table_name:
-            return table_name
+        if not table_name:
+            continue
+        elif not possible_table_name:
+            possible_table_name = table_name
+        else:
+            return
+
+    return possible_table_name

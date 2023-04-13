@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Iterable
 from pydantic import BaseModel
 
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.utils.migration_utils import match_fk_to_table
+from migration_service.utils.migration_utils import get_table_from_table_prefix_match
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +85,16 @@ class LinkToCreate(TableToCreate):
     def match_fks_to_fk_tables(self, fk_pattern: re.Pattern, tables: Iterable[str]):
         for field in self.fields:
             table_prefix = fk_pattern.search(field.name)
-            if table_prefix and not self.main_link:
-                table_name = match_fk_to_table(table_prefix, tables)
+            if not table_prefix:
+                continue
+            elif table_prefix and not self.main_link:
+                table_name = get_table_from_table_prefix_match(table_prefix, tables)
                 if table_name:
                     self.main_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif table_prefix and self.main_link and not self.paired_link:
-                table_name = match_fk_to_table(table_prefix, tables)
+                table_name = get_table_from_table_prefix_match(table_prefix, tables)
                 if table_name:
                     self.paired_link = OneWayLink(ref_table=table_name, fk=field.name)
-            elif not table_prefix:
-                continue
             else:
                 raise MoreThanTwoFieldsMatchFKPattern(
                     (self.main_link.fk, self.paired_link.fk, field.name),

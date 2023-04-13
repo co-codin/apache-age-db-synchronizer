@@ -4,19 +4,16 @@ import re
 
 from typing import Iterable
 
-from sqlalchemy import select, and_
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
 from migration_service.cql_queries.sat_queries import create_sats_query, create_sats_with_hubs_query
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.models import migrations
 from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration
 from migration_service.services.apply_migration_formatter import format_orm_migration
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches, match_fk_to_table
+from migration_service.utils.migration_utils import to_batches, get_table_from_table_prefix_match
 
 from migration_service.cql_queries.node_queries import delete_nodes_query
 from migration_service.cql_queries.hub_queries import create_hubs_query
@@ -77,12 +74,12 @@ async def _add_sats_tax(
 
     for sat in apply_migration.sats_to_create:
         table_prefix = sat_pattern.search(sat.name)
-        table_name = match_fk_to_table(table_prefix, tables_to_pks.keys())
-        if table_name:
+        table_name = get_table_from_table_prefix_match(table_prefix, tables_to_pks.keys())
+        try:
             sat.link.ref_table = table_name
             sat.link.ref_table_pk = tables_to_pks[table_name]
             sats_with_hub.append(sat.dict())
-        else:
+        except KeyError:
             sats_without_hub.append(sat.dict(exclude={'link'}))
 
     for sat_batch in to_batches(sats_with_hub):
@@ -117,22 +114,6 @@ async def _add_links_tx(
         await tx.run(create_links_with_hubs_query, links=link_batch, db_source=apply_migration.db_source)
     for link_batch in to_batches(links_without_hubs):
         await tx.run(create_links_query, links=link_batch, db_source=apply_migration.db_source)
-
-
-async def _apply_alter_tables(last_migration_id: int, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession):
-    tables_to_alter = await session.execute(
-        select(migrations.Table)
-        .options(selectinload(migrations.Table.fields))
-        .filter(
-            and_(
-                migrations.Table.migration_id == last_migration_id,
-                migrations.Table.old_name.is_not(None),
-                migrations.Table.old_name == migrations.Table.new_name
-            )
-        )
-    )
-    tables_to_alter = tables_to_alter.scalars().all()
-    return tables_to_alter
 
 
 async def _apply_delete_tables(apply_migration: ApplyMigration, graph_session: Neo4jAsyncSession):
