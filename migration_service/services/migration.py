@@ -15,10 +15,12 @@ from migration_service.services.apply_migration_formatter import format_orm_migr
 from migration_service.crud.migration import select_last_migration_tables_fields
 from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
 
-from migration_service.cql_queries.node_queries import delete_nodes_query
-from migration_service.cql_queries.hub_queries import (
-    create_hubs_query, alter_hubs_query_create_fields, alter_hubs_query_delete_fields, alter_hubs_query_alter_fields
+from migration_service.cql_queries.node_queries import (
+    delete_nodes_query, alter_nodes_query_create_fields, alter_nodes_query_delete_fields,
+    alter_nodes_query_alter_fields
 )
+from migration_service.cql_queries.hub_queries import create_hubs_query
+
 from migration_service.cql_queries.link_queries import (
     create_links_query, delete_links_query, create_links_with_hubs_query
 )
@@ -65,16 +67,19 @@ async def _apply_alter_tables(
         apply_migration: ApplyMigration,
         graph_session: Neo4jAsyncSession
 ):
-    hubs_to_alter = (hub.dict() for hub in apply_migration.hubs_to_alter)
+    nodes_to_alter = (
+        node.dict()
+        for node in itertools.chain(apply_migration.hubs_to_alter, apply_migration.sats_to_alter, apply_migration.links_to_alter)
+    )
 
-    await graph_session.execute_write(_alter_hubs_tx, hubs_to_alter, apply_migration.db_source)
+    await graph_session.execute_write(_alter_nodes_tx, nodes_to_alter, apply_migration.db_source)
 
 
-async def _alter_hubs_tx(tx: AsyncManagedTransaction, hubs_to_alter: Iterable[TableToAlter], db_source: str):
-    for hub_batch in to_batches(hubs_to_alter):
-        await tx.run(alter_hubs_query_create_fields, hubs=hub_batch, db_source=db_source)
-        await tx.run(alter_hubs_query_delete_fields, hubs=hub_batch, db_source=db_source)
-        await tx.run(alter_hubs_query_alter_fields, hubs=hub_batch, db_source=db_source)
+async def _alter_nodes_tx(tx: AsyncManagedTransaction, nodes_to_alter: Iterable[TableToAlter], db_source: str):
+    for node_batch in to_batches(nodes_to_alter):
+        await tx.run(alter_nodes_query_create_fields, nodes=node_batch, db_source=db_source)
+        await tx.run(alter_nodes_query_delete_fields, nodes=node_batch, db_source=db_source)
+        await tx.run(alter_nodes_query_alter_fields, nodes=node_batch, db_source=db_source)
 
 
 async def _add_hubs_tx(tx: AsyncManagedTransaction, hubs_to_create: Iterable[HubToCreate], db_source: str):
