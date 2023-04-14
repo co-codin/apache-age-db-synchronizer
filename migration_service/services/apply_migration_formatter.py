@@ -5,7 +5,8 @@ from typing import Iterable, Optional
 
 from migration_service.models.migrations import Migration, Table, Field
 from migration_service.schemas.migrations import (
-    ApplyMigration, FieldToCreate, HubToCreate, LinkToCreate, TableToCreate, SatToCreate, OneWayLink
+    ApplyMigration, FieldToCreate, HubToCreate, LinkToCreate, TableToCreate, SatToCreate, OneWayLink, TableToAlter,
+    FieldToAlter
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,17 @@ def format_orm_migration(migration: Migration, fk_pattern: str, pk_pattern: str)
         elif table.old_name is not None and table.new_name is None:
             # table to delete
             _format_table_to_delete(table, apply_migration, fk_pattern_compiled)
+        elif table.old_name is not None and table.old_name == table.new_name:
+            # table to alter
+            table_to_alter = _format_table_to_alter(table)
+            fk_count = table.fk_count(fk_pattern_compiled)
+
+            if not fk_count:
+                apply_migration.hubs_to_alter.append(table_to_alter)
+            elif fk_count == 1:
+                apply_migration.sats_to_alter.append(table_to_alter)
+            elif fk_count == 2:
+                apply_migration.links_to_alter.append(table_to_alter)
     return apply_migration
 
 
@@ -84,3 +96,24 @@ def _add_fields(
         table.pk = possible_pk
     if fk_count == 1:
         table.link = OneWayLink(fk=possible_fk)
+
+
+def _format_table_to_alter(table: Table) -> TableToAlter:
+    table_to_alter = TableToAlter(name=table.new_name)
+    for field in table.fields:
+        if field.old_name is None and field.new_name is not None:
+            # Field to create
+            table_to_alter.fields_to_create.append(
+                FieldToCreate(name=field.new_name, db_type=field.new_type)
+            )
+        elif field.old_name is not None and field.new_name is None:
+            # Field to delete
+            table_to_alter.fields_to_delete.append(field.old_name)
+        elif field.old_name is not None and field.old_name == field.new_name:
+            # Field to alter
+            table_to_alter.fields_to_alter.append(
+                FieldToAlter(
+                    name=field.new_name, old_type=field.old_type, new_type=field.new_type
+                )
+            )
+    return table_to_alter

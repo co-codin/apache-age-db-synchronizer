@@ -104,9 +104,14 @@ class LinkToCreate(TableToCreate):
 
 class ApplyMigration(BaseModel):
     db_source: str
+
     hubs_to_create: List[HubToCreate] = []
     sats_to_create: List[SatToCreate] = []
     links_to_create: List[LinkToCreate] = []
+
+    hubs_to_alter: List[TableToAlter] = []
+    sats_to_alter: List[TableToAlter] = []
+    links_to_alter: List[TableToAlter] = []
 
     hubs_to_delete: List[str] = []
     sats_to_delete: List[str] = []

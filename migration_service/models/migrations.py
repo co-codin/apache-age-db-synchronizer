@@ -41,7 +41,8 @@ class Table(Base):
     def fk_count(self, pattern: re.Pattern) -> int:
         count = 0
         for field in self.fields:
-            if pattern.search(field.new_name):
+            field_name = field.new_name if field.new_name else field.old_name
+            if pattern.search(field_name):
                 count += 1
         return count
 

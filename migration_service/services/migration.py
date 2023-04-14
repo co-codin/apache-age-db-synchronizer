@@ -9,14 +9,16 @@ from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
 from migration_service.cql_queries.sat_queries import create_sats_query, create_sats_with_hubs_query
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration
+from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration, TableToAlter
 from migration_service.services.apply_migration_formatter import format_orm_migration
 
 from migration_service.crud.migration import select_last_migration_tables_fields
 from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
 
 from migration_service.cql_queries.node_queries import delete_nodes_query
-from migration_service.cql_queries.hub_queries import create_hubs_query
+from migration_service.cql_queries.hub_queries import (
+    create_hubs_query, alter_hubs_query_create_fields, alter_hubs_query_delete_fields, alter_hubs_query_alter_fields
+)
 from migration_service.cql_queries.link_queries import (
     create_links_query, delete_links_query, create_links_with_hubs_query
 )
@@ -44,6 +46,7 @@ async def apply_migration(
 
     await _apply_delete_tables(last_migration, graph_session)
     await _apply_create_tables(last_migration, migration_pattern, graph_session)
+    await _apply_alter_tables(last_migration, graph_session)
 
 
 async def _apply_create_tables(
@@ -56,6 +59,22 @@ async def _apply_create_tables(
     await graph_session.execute_write(_add_hubs_tx, hub_dicts_to_create, apply_migration.db_source)
     await graph_session.execute_write(_add_links_tx, apply_migration, migration_pattern)
     await graph_session.execute_write(_add_sats_tax, apply_migration, migration_pattern)
+
+
+async def _apply_alter_tables(
+        apply_migration: ApplyMigration,
+        graph_session: Neo4jAsyncSession
+):
+    hubs_to_alter = (hub.dict() for hub in apply_migration.hubs_to_alter)
+
+    await graph_session.execute_write(_alter_hubs_tx, hubs_to_alter, apply_migration.db_source)
+
+
+async def _alter_hubs_tx(tx: AsyncManagedTransaction, hubs_to_alter: Iterable[TableToAlter], db_source: str):
+    for hub_batch in to_batches(hubs_to_alter):
+        await tx.run(alter_hubs_query_create_fields, hubs=hub_batch, db_source=db_source)
+        await tx.run(alter_hubs_query_delete_fields, hubs=hub_batch, db_source=db_source)
+        await tx.run(alter_hubs_query_alter_fields, hubs=hub_batch, db_source=db_source)
 
 
 async def _add_hubs_tx(tx: AsyncManagedTransaction, hubs_to_create: Iterable[HubToCreate], db_source: str):
