@@ -41,4 +41,5 @@ async def migrate(
         session: SQLAlchemyAsyncSession = Depends(db_session),
         graph_session: Neo4jAsyncSession = Depends(neo4j_session)
 ):
-    await apply_migration(migration_pattern, session, graph_session)
+    guid = await apply_migration(migration_pattern, session, graph_session)
+    return {'message': f'migration with guid {guid} has been applied'}

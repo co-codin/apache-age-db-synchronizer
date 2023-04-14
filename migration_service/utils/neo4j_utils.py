@@ -1,5 +1,3 @@
-import logging
-
 from typing import Set
 
 from neo4j import AsyncSession as Neo4jAsyncSession

@@ -12,7 +12,7 @@ from neo4j import AsyncSession as Neo4jAsyncSession
 from migration_service.models import migrations
 from migration_service.schemas import tables
 from migration_service.schemas.migrations import MigrationIn, MigrationOut
-from migration_service.services.migration_formatter import format_orm_migration
+from migration_service.services.migration_formatter import MigrationOutFormatter
 
 from migration_service.utils.migration_utils import create_dataclass_tables
 from migration_service.utils.postgres_utils import get_db_tables, get_table_col_type
@@ -65,7 +65,7 @@ async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) ->
     if migration is not None:
         logger.info(f"migration name: {migration.name}")
         logger.info(f"migration created_at: {migration.created_at}")
-        formatted_migration = format_orm_migration(migration)
+        formatted_migration = MigrationOutFormatter(migration).format()
         return formatted_migration
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

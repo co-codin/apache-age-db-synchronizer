@@ -4,13 +4,14 @@ import re
 
 from typing import Iterable
 
+from fastapi import status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
 from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
 from migration_service.cql_queries.sat_queries import create_sats_query, create_sats_with_hubs_query
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
 from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration, TableToAlter
-from migration_service.services.apply_migration_formatter import format_orm_migration
+from migration_service.services.migration_formatter import ApplyMigrationFormatter
 
 from migration_service.crud.migration import select_last_migration_tables_fields
 from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
@@ -30,25 +31,31 @@ logger = logging.getLogger(__name__)
 
 async def apply_migration(
         migration_pattern: MigrationPattern, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession
-):
-    """
-    1) Insert tables
-    2) Alter tables
-    3) Delete tables
-    """
+) -> str:
     last_migration = await select_last_migration_tables_fields(session)
     if not last_migration:
-        return
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    last_migration = format_orm_migration(
+    guid = last_migration.guid
+    last_migration = ApplyMigrationFormatter(
         last_migration, migration_pattern.fk_pattern, migration_pattern.pk_pattern
-    )
+    ).format()
 
     logger.info(f"last migration: {last_migration}")
 
     await _apply_delete_tables(last_migration, graph_session)
     await _apply_create_tables(last_migration, migration_pattern, graph_session)
     await _apply_alter_tables(last_migration, graph_session)
+    return guid
+
+
+async def _apply_delete_tables(apply_migration: ApplyMigration, graph_session: Neo4jAsyncSession):
+    hubs_sats_to_delete = (
+        table
+        for table in itertools.chain(apply_migration.hubs_to_delete, apply_migration.sats_to_delete)
+    )
+    await graph_session.execute_write(_delete_nodes_tx, hubs_sats_to_delete, delete_nodes_query)
+    await graph_session.execute_write(_delete_nodes_tx, apply_migration.links_to_delete, delete_links_query)
 
 
 async def _apply_create_tables(
@@ -75,11 +82,10 @@ async def _apply_alter_tables(
     await graph_session.execute_write(_alter_nodes_tx, nodes_to_alter, apply_migration.db_source)
 
 
-async def _alter_nodes_tx(tx: AsyncManagedTransaction, nodes_to_alter: Iterable[TableToAlter], db_source: str):
-    for node_batch in to_batches(nodes_to_alter):
-        await tx.run(alter_nodes_query_create_fields, nodes=node_batch, db_source=db_source)
-        await tx.run(alter_nodes_query_delete_fields, nodes=node_batch, db_source=db_source)
-        await tx.run(alter_nodes_query_alter_fields, nodes=node_batch, db_source=db_source)
+async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str], delete_query: str):
+    for node_batch in to_batches(nodes_to_delete):
+        logger.info(f'nodes_batch: {node_batch}')
+        await tx.run(delete_query, node_names=node_batch)
 
 
 async def _add_hubs_tx(tx: AsyncManagedTransaction, hubs_to_create: Iterable[HubToCreate], db_source: str):
@@ -144,16 +150,8 @@ async def _add_links_tx(
         await tx.run(create_links_query, links=link_batch, db_source=apply_migration.db_source)
 
 
-async def _apply_delete_tables(apply_migration: ApplyMigration, graph_session: Neo4jAsyncSession):
-    hubs_sats_to_delete = (
-        table
-        for table in itertools.chain(apply_migration.hubs_to_delete, apply_migration.sats_to_delete)
-    )
-    await graph_session.execute_write(_delete_nodes_tx, hubs_sats_to_delete, delete_nodes_query)
-    await graph_session.execute_write(_delete_nodes_tx, apply_migration.links_to_delete, delete_links_query)
-
-
-async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str], delete_query: str):
-    for node_batch in to_batches(nodes_to_delete):
-        logger.info(f'nodes_batch: {node_batch}')
-        await tx.run(delete_query, node_names=node_batch)
+async def _alter_nodes_tx(tx: AsyncManagedTransaction, nodes_to_alter: Iterable[TableToAlter], db_source: str):
+    for node_batch in to_batches(nodes_to_alter):
+        await tx.run(alter_nodes_query_create_fields, nodes=node_batch, db_source=db_source)
+        await tx.run(alter_nodes_query_delete_fields, nodes=node_batch, db_source=db_source)
+        await tx.run(alter_nodes_query_alter_fields, nodes=node_batch, db_source=db_source)
