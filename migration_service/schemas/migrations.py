@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Iterable
 from pydantic import BaseModel
 
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.utils.migration_utils import get_table_from_table_prefix_match
+from migration_service.utils.migration_utils import get_highest_table_similarity_score
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +52,13 @@ class MigrationOut(BaseModel):
 
 
 class MigrationPattern(BaseModel):
-    hub_prefix: str = r'.*'
+    hub_prefix: str = r'\w*'
     hub_pattern = f'{hub_prefix}_hub'
 
     pk_pattern = "hash_key"
 
-    fk_table = f"^({hub_prefix})_?({hub_prefix})_?({hub_prefix})_sat$"
+    # fk_table = f"^({hub_prefix})_?({hub_prefix})_?({hub_prefix})_sat$"
+    fk_table = f"^({hub_prefix})_sat$"
     fk_pattern = f"^(?:id)?({hub_prefix})_hash_fkey$"
 
 
@@ -83,16 +84,17 @@ class LinkToCreate(TableToCreate):
     pk: Optional[str]
 
     def match_fks_to_fk_tables(self, fk_pattern: re.Pattern, tables: Iterable[str]):
+        table_collection = (table for table in tables if table != self.name)
         for field in self.fields:
             table_prefix = fk_pattern.search(field.name)
             if not table_prefix:
                 continue
             elif table_prefix and not self.main_link:
-                table_name = get_table_from_table_prefix_match(table_prefix, tables)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
                 if table_name:
                     self.main_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif table_prefix and self.main_link and not self.paired_link:
-                table_name = get_table_from_table_prefix_match(table_prefix, tables)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
                 if table_name:
                     self.paired_link = OneWayLink(ref_table=table_name, fk=field.name)
             else:

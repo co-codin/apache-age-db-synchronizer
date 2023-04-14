@@ -1,4 +1,6 @@
+import difflib
 import re
+
 from typing import Iterable, Sequence, List, Optional
 
 from migration_service.schemas import tables
@@ -65,3 +67,11 @@ def get_table_from_table_prefix_match(table_prefix: re.Match, tables: Iterable[s
             return
 
     return possible_table_name
+
+
+def get_highest_table_similarity_score(ref_table: str, tables: Iterable[str]) -> str:
+    scores = {}
+    for table in tables:
+        score = difflib.SequenceMatcher(None, a=ref_table, b=table).ratio()
+        scores[table] = score
+    return max(scores, key=scores.get)

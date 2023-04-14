@@ -1,6 +1,7 @@
 import logging
 import itertools
 import re
+import difflib
 
 from typing import Iterable
 
@@ -13,7 +14,7 @@ from migration_service.schemas.migrations import MigrationPattern, HubToCreate, 
 from migration_service.services.apply_migration_formatter import format_orm_migration
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches, get_table_from_table_prefix_match
+from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
 
 from migration_service.cql_queries.node_queries import delete_nodes_query
 from migration_service.cql_queries.hub_queries import create_hubs_query
@@ -74,7 +75,12 @@ async def _add_sats_tax(
 
     for sat in apply_migration.sats_to_create:
         table_prefix = sat_pattern.search(sat.name)
-        table_name = get_table_from_table_prefix_match(table_prefix, tables_to_pks.keys())
+        table_collection = (table for table in tables_to_pks.keys() if table != sat.name)
+        table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
+
+        logger.info(f'table prefix: {table_prefix.group(1)}')
+        logger.info(f'table: {table_name}')
+
         try:
             sat.link.ref_table = table_name
             sat.link.ref_table_pk = tables_to_pks[table_name]
