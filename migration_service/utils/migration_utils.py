@@ -1,6 +1,6 @@
 import difflib
 
-from typing import Iterable, Sequence, List
+from typing import Iterable, Sequence, List, Optional
 
 from migration_service.schemas import tables
 
@@ -35,9 +35,10 @@ def to_batches(records: Iterable, size: int = 50):
         yield batches
 
 
-def get_highest_table_similarity_score(ref_table: str, tables: Iterable[str]) -> str:
+def get_highest_table_similarity_score(ref_table: str, tables: Iterable[str], exclude_table: Optional[str]) -> str:
     scores = {}
     for table in tables:
-        score = difflib.SequenceMatcher(None, a=ref_table, b=table).ratio()
-        scores[table] = score
+        if exclude_table and table != exclude_table:
+            score = difflib.SequenceMatcher(None, a=ref_table, b=table).ratio()
+            scores[table] = score
     return max(scores, key=scores.get)

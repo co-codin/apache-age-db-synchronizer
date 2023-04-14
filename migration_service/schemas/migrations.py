@@ -88,11 +88,11 @@ class LinkToCreate(TableToCreate):
             if not table_prefix:
                 continue
             elif table_prefix and not self.main_link:
-                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables, self.name)
                 if table_name:
                     self.main_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif table_prefix and self.main_link and not self.paired_link:
-                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables, self.name)
                 if table_name:
                     self.paired_link = OneWayLink(ref_table=table_name, fk=field.name)
             else:

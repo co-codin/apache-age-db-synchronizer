@@ -74,8 +74,7 @@ async def _add_sats_tax(
 
     for sat in apply_migration.sats_to_create:
         table_prefix = sat_pattern.search(sat.name)
-        table_collection = (table for table in tables_to_pks.keys() if table != sat.name)
-        table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
+        table_name = get_highest_table_similarity_score(table_prefix.group(1), tables_to_pks.keys(), sat.name)
 
         logger.info(f'table prefix: {table_prefix.group(1)}')
         logger.info(f'table: {table_name}')
@@ -105,8 +104,7 @@ async def _add_links_tx(
     tables_to_pks = apply_migration.tables_to_pks
 
     for link in apply_migration.links_to_create:
-        table_collection = (table for table in tables_to_pks.keys() if table != link.name)
-        link.match_fks_to_fk_tables(fk_pattern_compiled, table_collection)
+        link.match_fks_to_fk_tables(fk_pattern_compiled, tables_to_pks.keys())
         try:
             link.main_link.ref_table_pk = tables_to_pks[link.main_link.ref_table]
             link.paired_link.ref_table_pk = tables_to_pks[link.paired_link.ref_table]
