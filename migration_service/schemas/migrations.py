@@ -57,7 +57,6 @@ class MigrationPattern(BaseModel):
 
     pk_pattern = "hash_key"
 
-    # fk_table = f"^({hub_prefix})_?({hub_prefix})_?({hub_prefix})_sat$"
     fk_table = f"^({hub_prefix})_sat$"
     fk_pattern = f"^(?:id)?({hub_prefix})_hash_fkey$"
 

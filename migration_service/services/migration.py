@@ -1,7 +1,6 @@
 import logging
 import itertools
 import re
-import difflib
 
 from typing import Iterable
 

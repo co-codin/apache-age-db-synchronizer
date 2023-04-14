@@ -1,7 +1,6 @@
 import difflib
-import re
 
-from typing import Iterable, Sequence, List, Optional
+from typing import Iterable, Sequence, List
 
 from migration_service.schemas import tables
 
@@ -34,39 +33,6 @@ def to_batches(records: Iterable, size: int = 50):
             batches.clear()
     if batches:
         yield batches
-
-
-def get_table_name_by_prefix(table_prefix: str, table_names: Iterable[str]) -> Optional[str]:
-    if not table_prefix:
-        return
-
-    possible_table_name = None
-    for table in table_names:
-        if table_prefix not in table:
-            continue
-        elif not possible_table_name:
-            possible_table_name = table
-        else:
-            return
-    return possible_table_name
-
-
-def get_table_from_table_prefix_match(table_prefix: re.Match, tables: Iterable[str]) -> Optional[str]:
-    if not table_prefix:
-        return
-
-    possible_table_name = None
-
-    for i in range(1, len(table_prefix.groups()) + 1):
-        table_name = get_table_name_by_prefix(table_prefix.group(i), tables)
-        if not table_name:
-            continue
-        elif not possible_table_name:
-            possible_table_name = table_name
-        else:
-            return
-
-    return possible_table_name
 
 
 def get_highest_table_similarity_score(ref_table: str, tables: Iterable[str]) -> str:
