@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from typing import Union, Set, List
+from typing import Union, Set, List, Sequence
 
 from fastapi import status, HTTPException
 from sqlalchemy import select
@@ -14,7 +14,6 @@ from migration_service.schemas import tables
 from migration_service.schemas.migrations import MigrationIn, MigrationOut
 from migration_service.services.migration_formatter import MigrationOutFormatter
 
-from migration_service.utils.migration_utils import create_dataclass_tables
 from migration_service.utils.postgres_utils import get_db_tables, get_table_col_type
 from migration_service.utils.neo4j_utils import get_neo4j_tables, get_neo4j_table_col_type
 
@@ -76,7 +75,7 @@ async def _create_tables(table_names: Set[str], migration: migrations.Migration,
         return
 
     records = await get_table_col_type(table_names, db_source)
-    dataclass_db_tables = create_dataclass_tables(records)
+    dataclass_db_tables = _create_dataclass_tables(records)
 
     for db_table in dataclass_db_tables:
         table = migrations.Table(new_name=db_table.name)
@@ -98,8 +97,8 @@ async def _alter_tables(
     logger.info(f'db records to alter: {db_records}')
     logger.info(f'neo4j records to alter: {neo4j_records}')
 
-    dataclass_db_tables = create_dataclass_tables(db_records)
-    dataclass_neo4j_tables = create_dataclass_tables(neo4j_records)
+    dataclass_db_tables = _create_dataclass_tables(db_records)
+    dataclass_neo4j_tables = _create_dataclass_tables(neo4j_records)
 
     logger.info(f'dataclass db tables to alter: {dataclass_db_tables}')
     logger.info(f'dataclass neo4j tables to alter: {dataclass_neo4j_tables}')
@@ -197,3 +196,22 @@ async def _select_last_migration(session: SQLAlchemyAsyncSession) -> Union[migra
         select(migrations.Migration).order_by(migrations.Migration.created_at.desc()).limit(1)
     )
     return last_migration.scalars().first()
+
+
+def _create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table]:
+    db_tables: List[tables.Table] = []
+    if not db_records:
+        return db_tables
+
+    table_d = db_records[0][0]
+    db_tables.append(tables.Table(name=table_d))
+
+    for record in db_records:
+        if table_d != record[0]:
+            table_d = record[0]
+            db_tables.append(tables.Table(name=table_d))
+
+        field_name = record[1]
+        field_type = record[2]
+        db_tables[-1].field_to_type[field_name] = field_type
+    return db_tables
