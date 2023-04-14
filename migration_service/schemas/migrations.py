@@ -83,17 +83,16 @@ class LinkToCreate(TableToCreate):
     pk: Optional[str]
 
     def match_fks_to_fk_tables(self, fk_pattern: re.Pattern, tables: Iterable[str]):
-        table_collection = (table for table in tables if table != self.name)
         for field in self.fields:
             table_prefix = fk_pattern.search(field.name)
             if not table_prefix:
                 continue
             elif table_prefix and not self.main_link:
-                table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables)
                 if table_name:
                     self.main_link = OneWayLink(ref_table=table_name, fk=field.name)
             elif table_prefix and self.main_link and not self.paired_link:
-                table_name = get_highest_table_similarity_score(table_prefix.group(1), table_collection)
+                table_name = get_highest_table_similarity_score(table_prefix.group(1), tables)
                 if table_name:
                     self.paired_link = OneWayLink(ref_table=table_name, fk=field.name)
             else:

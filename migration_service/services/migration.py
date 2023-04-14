@@ -105,7 +105,8 @@ async def _add_links_tx(
     tables_to_pks = apply_migration.tables_to_pks
 
     for link in apply_migration.links_to_create:
-        link.match_fks_to_fk_tables(fk_pattern_compiled, tables_to_pks.keys())
+        table_collection = (table for table in tables_to_pks.keys() if table != link.name)
+        link.match_fks_to_fk_tables(fk_pattern_compiled, table_collection)
         try:
             link.main_link.ref_table_pk = tables_to_pks[link.main_link.ref_table]
             link.paired_link.ref_table_pk = tables_to_pks[link.paired_link.ref_table]
