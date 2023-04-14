@@ -4,10 +4,11 @@ import logging
 
 from typing import List, Optional, Dict, Iterable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
-from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
+from migration_service.errors import MoreThanTwoFieldsMatchFKPattern, UnknownDBSource
 from migration_service.utils.migration_utils import get_highest_table_similarity_score
+from migration_service.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 class MigrationIn(BaseModel):
     name: str
     db_source: str
+
+    @validator('db_source')
+    def db_source_must_exist_in_settings(cls, v):
+        if v not in settings.db_sources.keys():
+            raise UnknownDBSource(v, settings.db_sources.keys())
+        else:
+            return v
 
 
 class FieldToCreate(BaseModel):
