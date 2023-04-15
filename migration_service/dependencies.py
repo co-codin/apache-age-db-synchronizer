@@ -30,5 +30,5 @@ async def neo4j_session():
     async with driver.session() as session:
         try:
             yield session
-        except (ServiceUnavailable, ValueError):
+        except ServiceUnavailable:
             raise NoNeo4jConnection(settings.neo4j_connection_string)

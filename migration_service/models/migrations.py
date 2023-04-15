@@ -1,3 +1,5 @@
+import re
+
 from datetime import datetime
 
 from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey
@@ -35,6 +37,14 @@ class Table(Base):
     new_name = Column(String(110))
 
     fields = relationship('Field')
+
+    def fk_count(self, pattern: re.Pattern) -> int:
+        count = 0
+        for field in self.fields:
+            field_name = field.new_name if field.new_name else field.old_name
+            if pattern.search(field_name):
+                count += 1
+        return count
 
 
 class Field(Base):
