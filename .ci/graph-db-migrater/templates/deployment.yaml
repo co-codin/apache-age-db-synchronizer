@@ -23,13 +23,12 @@ spec:
       initContainers:
         - name: "{{ .Chart.Name }}-migrations"
           image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
-          command: [ 'alembic', 'upgrade', 'head' ]
           env:
-            - name: DWH_GRAPH_DB_MIGRATION_STRING
+            - name: dwh_graph_db_migrater_db_migration_connection_string
               valueFrom:
                 secretKeyRef:
                   name: {{ include "graph-db-migrater.fullname" . }}-secret
-                  key: DWH_GRAPH_DB_MIGRATION_STRING
+                  key: dwh_graph_db_migrater_db_migration_connection_string
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
