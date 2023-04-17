@@ -5,4 +5,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY migrations /app/migrations
 COPY alembic.ini /app/alembic.ini
 COPY migration_service /app/migration_service
-CMD ["alembic", "upgrade", "head"]
+COPY .ci/create_db_and_migrate.py /app/create_db_and_migrate.py
+CMD ["python", "/app/create_db_and_migrate.py"]

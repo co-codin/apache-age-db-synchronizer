@@ -5,18 +5,18 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: repo.n3zdrav.ru:18444/graph-db-migrater
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
 secrets:
-  DWH_GRAPH_DB_SOURCE: ""
-  DWH_GRAPH_DB_CONNECTION_STRING: ""
-  DWH_GRAPH_DB_MIGRATION_STRING: ""
-  DWH_GRAPH_DB_NEO4J_CONNECTION_STRING: ""
-  DWH_GRAPH_DB_NEO4J_CONNECTION_USER: ""
-  DWH_GRAPH_DB_NEO4J_CONNECTION_PASSWORD: ""
+  db_source: ""
+  db_connection_string: ""
+  db_migration_connection_string: ""
+  neo4j_connection_string: ""
+  neo4j_connection_user: ""
+  neo4j_connection_password: ""
 
 configmap:
   api_iam: "http://iam.smartdwh:8000"
