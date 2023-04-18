@@ -53,7 +53,7 @@ build-migrations:
       --set image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA 
       --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 
-      --set-string podAnnotations.instrumentation.opentelemetry.io/inject-python=true
+      --set-string 'podAnnotations.instrumentation\.opentelemetry\.io/inject-python=true'
       $CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME ./.ci/$CI_PROJECT_NAME -f .ci/$CI_PROJECT_NAME/updated-values.yaml
 
 
