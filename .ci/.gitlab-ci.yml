@@ -3,6 +3,11 @@ stages:
   - test
   - deploy
 
+include:
+  - project: "smart-dwh/dwh"
+    file: ".ci/helm-semver.yml"
+    ref: dev
+
 variables:
   DOCKER_REPO: repo.n3zdrav.ru:18444
 
