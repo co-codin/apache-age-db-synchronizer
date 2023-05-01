@@ -5,6 +5,9 @@ metadata:
   name: {{ include "graph-db-migrater.fullname" . }}
   labels:
     {{- include "graph-db-migrater.labels" . | nindent 4 }}
+    {{- if ne .Values.ciEnv "" }}
+    environment: {{ .Values.ciEnv }}
+    {{- end }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
