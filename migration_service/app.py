@@ -46,3 +46,7 @@ def api_exception_handler(_request: Request, exc: APIError) -> JSONResponse:
         status_code=exc.status_code,
         content={"message": str(exc)},
     )
+
+@migration_app.get('/ping')
+def ping():
+    return {'status': 'ok'}
