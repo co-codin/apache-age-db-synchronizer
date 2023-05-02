@@ -24,13 +24,6 @@ async def on_startup():
 
 @migration_app.middleware("http")
 async def request_log(request: Request, call_next):
-    """
-    Global exception handler for catching non API errors.
-    ALso catch, sort and write uvicorn output and critical errors to log
-    :param request: Request
-    :param call_next: call_next
-    :return: JSONResponse
-    """
     try:
         response: Response = await call_next(request)
         if response.status_code < 400:
@@ -48,19 +41,8 @@ async def request_log(request: Request, call_next):
 
 @migration_app.exception_handler(APIError)
 def api_exception_handler(_request: Request, exc: APIError) -> JSONResponse:
-    """
-    Exception handler for catching API errors
-    :param _request: Request
-    :param exc: APIError
-    :return: JSONResponse
-    """
     logger.warning(str(exc))
     return JSONResponse(
         status_code=exc.status_code,
         content={"message": str(exc)},
     )
-
-
-@migration_app.get('/ping')
-def ping():
-    return {'status': 'ok'}
