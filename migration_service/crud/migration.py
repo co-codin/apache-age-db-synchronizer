@@ -13,9 +13,10 @@ from migration_service.models import migrations
 from migration_service.schemas import tables
 from migration_service.schemas.migrations import MigrationIn, MigrationOut
 from migration_service.services.migration_formatter import MigrationOutFormatter
+from migration_service.services.metadata_extractor import MetaDataExtractorFactory, MetadataExtractor
 
-from migration_service.utils.postgres_utils import get_db_tables, get_table_col_type
 from migration_service.utils.neo4j_utils import get_neo4j_tables, get_neo4j_table_col_type
+from migration_service.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,10 @@ logger = logging.getLogger(__name__)
 async def add_migration(
         migration_in: MigrationIn, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession
 ) -> str:
-    db_tables = await get_db_tables(migration_in.db_source)
-    neo4j_tables = await get_neo4j_tables(graph_session, migration_in.db_source)
+    metadata_extractor = MetaDataExtractorFactory.build(conn_string=migration_in.conn_string)
+
+    db_tables = await metadata_extractor.extract_table_names()
+    neo4j_tables = await get_neo4j_tables(graph_session)
 
     logger.info(f"db tables: {db_tables}")
     logger.info(f"neo4j tables: {neo4j_tables}")
@@ -38,10 +41,10 @@ async def add_migration(
     logger.info(f'tables to delete: {tables_to_delete}')
 
     guid = str(uuid.uuid4())
-    migration = migrations.Migration(name=migration_in.name, guid=guid, db_source=migration_in.db_source)
+    migration = migrations.Migration(name=migration_in.name, guid=guid, db_source=settings.db_source)
 
-    await _create_tables(tables_to_create, migration, migration_in.db_source)
-    await _alter_tables(tables_to_alter, migration, migration_in.db_source, graph_session)
+    await _create_tables(tables_to_create, metadata_extractor, migration)
+    await _alter_tables(tables_to_alter, metadata_extractor, graph_session, migration)
     await _delete_tables(tables_to_delete, migration)
 
     last_migration = await _select_last_migration(session)
@@ -70,11 +73,13 @@ async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) ->
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 
-async def _create_tables(table_names: Set[str], migration: migrations.Migration, db_source: str):
+async def _create_tables(
+        table_names: Set[str], metadata_extractor: MetadataExtractor, migration: migrations.Migration,
+):
     if not table_names:
         return
 
-    records = await get_table_col_type(table_names, db_source)
+    records = await metadata_extractor.extract_table_col_type(table_names)
     dataclass_db_tables = _create_dataclass_tables(records)
 
     for db_table in dataclass_db_tables:
@@ -87,12 +92,13 @@ async def _create_tables(table_names: Set[str], migration: migrations.Migration,
 
 
 async def _alter_tables(
-        table_names: Set[str], migration: migrations.Migration, db_source: str, graph_session: Neo4jAsyncSession
+        table_names: Set[str], metadata_extractor: MetadataExtractor, graph_session: Neo4jAsyncSession,
+        migration: migrations.Migration
 ):
     if not table_names:
         return
-    db_records = await get_table_col_type(table_names, db_source)
-    neo4j_records = await get_neo4j_table_col_type(table_names, db_source, graph_session)
+    db_records = await metadata_extractor.extract_table_col_type(table_names)
+    neo4j_records = await get_neo4j_table_col_type(table_names, graph_session)
 
     logger.info(f'db records to alter: {db_records}')
     logger.info(f'neo4j records to alter: {neo4j_records}')

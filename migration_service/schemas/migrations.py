@@ -3,25 +3,16 @@ import logging
 
 from typing import List, Dict
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 
 from migration_service.schemas.tables import HubToCreate, SatToCreate, LinkToCreate, TableToCreate, TableToAlter
-from migration_service.errors import UnknownDBSource
-from migration_service.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
 class MigrationIn(BaseModel):
     name: str
-    db_source: str
-
-    @validator('db_source')
-    def db_source_must_exist_in_settings(cls, v):
-        if v not in settings.db_sources.keys():
-            raise UnknownDBSource(v, settings.db_sources.keys())
-        else:
-            return v
+    conn_string: str
 
 
 class MigrationOut(BaseModel):
