@@ -5,7 +5,9 @@ from abc import abstractmethod, ABC
 from typing import Iterable, Optional, Union
 
 from migration_service.models import migrations, Table, Field
-from migration_service.schemas.migrations import MigrationOut, TableToCreate, TableToAlter, ApplyMigration
+from migration_service.schemas.migrations import (
+    MigrationOut, TableToCreate, TableToAlter, ApplyMigration, SchemaOut, ApplySchema
+)
 from migration_service.schemas.fields import FieldToCreate, FieldToAlter
 from migration_service.schemas.tables import OneWayLink, HubToCreate, SatToCreate, LinkToCreate
 
@@ -49,18 +51,21 @@ class MigrationOutFormatter(MigrationFormatter):
 
     def format(self) -> MigrationOut:
         migration_out = MigrationOut(name=self._migration.name)
-        for table in self._migration.tables:
-            if table.old_name is None and table.new_name is not None:
-                # table to create
-                table_to_create = self._format_table_to_create(table)
-                migration_out.tables_to_create.append(table_to_create)
-            elif table.old_name is not None and table.new_name is None:
-                # table to delete
-                migration_out.tables_to_delete.append(table.old_name)
-            elif table.old_name is not None and table.old_name == table.new_name:
-                # table to alter
-                table_to_alter = self._format_table_to_alter(table)
-                migration_out.tables_to_alter.append(table_to_alter)
+        for schema in self._migration.schemas:
+            schema_out = SchemaOut(name=schema.name)
+            for table in schema.tables:
+                if table.old_name is None and table.new_name is not None:
+                    # table to create
+                    table_to_create = self._format_table_to_create(table)
+                    schema_out.tables_to_create.append(table_to_create)
+                elif table.old_name is not None and table.new_name is None:
+                    # table to delete
+                    schema_out.tables_to_delete.append(table.old_name)
+                elif table.old_name is not None and table.old_name == table.new_name:
+                    # table to alter
+                    table_to_alter = self._format_table_to_alter(table)
+                    schema_out.tables_to_alter.append(table_to_alter)
+            migration_out.schemas.append(schema_out)
         return migration_out
 
     @staticmethod
@@ -80,55 +85,57 @@ class ApplyMigrationFormatter(MigrationFormatter):
 
     def format(self) -> ApplyMigration:
         apply_migration = ApplyMigration(db_source=self._migration.db_source)
+        for schema in self._migration.schemas:
+            apply_schema = ApplySchema(name=schema.name)
+            for table in schema.tables:
+                if table.old_name is None and table.new_name is not None:
+                    # table to create
+                    self._format_table_to_create(table, apply_schema)
+                elif table.old_name is not None and table.new_name is None:
+                    # table to delete
+                    self._format_table_to_delete(table, apply_schema)
+                elif table.old_name is not None and table.old_name == table.new_name:
+                    # table to alter
+                    table_to_alter = self._format_table_to_alter(table)
+                    fk_count = table.fk_count(self._fk_pattern_compiled)
 
-        for table in self._migration.tables:
-            if table.old_name is None and table.new_name is not None:
-                # table to create
-                self._format_table_to_create(table, apply_migration)
-            elif table.old_name is not None and table.new_name is None:
-                # table to delete
-                self._format_table_to_delete(table, apply_migration)
-            elif table.old_name is not None and table.old_name == table.new_name:
-                # table to alter
-                table_to_alter = self._format_table_to_alter(table)
-                fk_count = table.fk_count(self._fk_pattern_compiled)
-
-                if not fk_count:
-                    apply_migration.hubs_to_alter.append(table_to_alter)
-                elif fk_count == 1:
-                    apply_migration.sats_to_alter.append(table_to_alter)
-                elif fk_count == 2:
-                    apply_migration.links_to_alter.append(table_to_alter)
+                    if not fk_count:
+                        apply_schema.hubs_to_alter.append(table_to_alter)
+                    elif fk_count == 1:
+                        apply_schema.sats_to_alter.append(table_to_alter)
+                    elif fk_count == 2:
+                        apply_schema.links_to_alter.append(table_to_alter)
+            apply_migration.schemas.append(apply_schema)
         return apply_migration
 
-    def _format_table_to_create(self, table: Table, migration: ApplyMigration):
+    def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
         logger.info(f"{table.new_name} fk count = {fk_count}")
         if not fk_count:
-            hub = HubToCreate(name=table.new_name)
-            migration.hubs_to_create.append(hub)
+            hub = HubToCreate(name=table.new_name, db=table.db)
+            apply_schema.hubs_to_create.append(hub)
             self._add_fields(hub, table.fields, pk_pattern=self._pk_pattern_compiled)
         elif fk_count == 1:
-            sat = SatToCreate(name=table.new_name)
-            migration.sats_to_create.append(sat)
+            sat = SatToCreate(name=table.new_name, db=table.db)
+            apply_schema.sats_to_create.append(sat)
             self._add_fields(
                 sat, table.fields, pk_pattern=self._pk_pattern_compiled, fk_pattern=self._fk_pattern_compiled
             )
         elif fk_count == 2:
-            link = LinkToCreate(name=table.new_name)
-            migration.links_to_create.append(link)
+            link = LinkToCreate(name=table.new_name, db=table.db)
+            apply_schema.links_to_create.append(link)
             self._add_fields(link, table.fields, pk_pattern=self._pk_pattern_compiled)
         else:
             return
 
-    def _format_table_to_delete(self, table: Table, migration: ApplyMigration):
+    def _format_table_to_delete(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
         if not fk_count:
-            migration.hubs_to_delete.append(table.old_name)
+            apply_schema.hubs_to_delete.append(table.old_name)
         elif fk_count == 1:
-            migration.sats_to_delete.append(table.old_name)
+            apply_schema.sats_to_delete.append(table.old_name)
         elif fk_count == 2:
-            migration.links_to_create.append(table.old_name)
+            apply_schema.links_to_create.append(table.old_name)
         else:
             return
 

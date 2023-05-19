@@ -16,15 +16,12 @@ class Settings(BaseSettings):
     log_dir: str = "/var/log/n3dwh/"
     log_name: str = "graph_db_migrater.log"
 
-    db_source: str = 'dv_raw'
-
     # Database constants
     db_connection_string: str = 'postgresql+asyncpg://postgres:dwh@db.lan:5432/graph_migrations'
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/graph_migrations'
 
-    # Neo4j constants
-    neo4j_connection_string: str = 'bolt://graphdb.lan:7687'
-    neo4j_auth: Neo4jCreds = (os.environ.get('dwh_graph_db_migrater_neo4j_connection_user', 'neo4j'), os.environ.get('dwh_graph_db_migrater_neo4j_connection_password', 'dwh'))
+    # age constants
+    age_connection_string: str = 'postgresql://postgres:dwh@graphdb.lan:5455/postgres'
 
     # Service's urls
     api_iam = 'http://iam.lan:8000'

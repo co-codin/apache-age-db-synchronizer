@@ -1,10 +1,10 @@
+from age import Age
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
-from neo4j import AsyncSession as Neo4jAsyncSession
 
 from migration_service.crud.migration import add_migration, select_migration
 from migration_service.services.migration import apply_migration
-from migration_service.dependencies import db_session, neo4j_session
+from migration_service.dependencies import db_session, ag_session
 from migration_service.schemas.migrations import MigrationIn, MigrationOut, MigrationPattern
 
 
@@ -17,9 +17,9 @@ router = APIRouter(
 async def create_migration(
         migration_in: MigrationIn,
         session: SQLAlchemyAsyncSession = Depends(db_session),
-        graph_session: Neo4jAsyncSession = Depends(neo4j_session)
+        age_session: Age = Depends(ag_session)
 ):
-    guid = await add_migration(migration_in, session, graph_session)
+    guid = await add_migration(migration_in, session, age_session)
     return {'guid': guid}
 
 
@@ -39,7 +39,7 @@ async def get_last_migration(session: SQLAlchemyAsyncSession = Depends(db_sessio
 async def migrate(
         migration_pattern: MigrationPattern,
         session: SQLAlchemyAsyncSession = Depends(db_session),
-        graph_session: Neo4jAsyncSession = Depends(neo4j_session)
+        age_session: Age = Depends(ag_session)
 ):
-    guid = await apply_migration(migration_pattern, session, graph_session)
+    guid = await apply_migration(migration_pattern, session, age_session)
     return {'message': f'migration with guid {guid} has been applied'}

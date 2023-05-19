@@ -24,8 +24,16 @@ class Migration(Base):
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, server_onupdate=func.now()
     )
 
-    tables = relationship('Table')
+    schemas = relationship('Schema')
     prev_migration = relationship('Migration', remote_side=[id], uselist=False, backref='next_migration')
+
+
+class Schema(Base):
+    __tablename__ = "schemas"
+
+    migration_guid = Column(String(36), ForeignKey(Migration.guid), primary_key=True)
+    name = Column(String(110), primary_key=True)
+    tables = relationship('Table')
 
 
 class Table(Base):
@@ -33,6 +41,7 @@ class Table(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, nullable=False)
     migration_id = Column(BigInteger, ForeignKey(Migration.id))
+    db = Column(String(110), nullable=False)
     old_name = Column(String(110))
     new_name = Column(String(110))
 

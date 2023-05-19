@@ -13,6 +13,7 @@ from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
 @dataclass(frozen=True)
 class Table:
     name: str
+    db: str
     field_to_type: Dict[str, str] = field(default_factory=dict)
 
     def __hash__(self):
@@ -20,7 +21,9 @@ class Table:
 
 
 class TableToCreate(BaseModel):
+    schema: str
     name: str
+    db: str
     fields: List[FieldToCreate] = []
 
     @property

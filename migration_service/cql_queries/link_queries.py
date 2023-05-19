@@ -7,16 +7,18 @@ create_links_query = "WITH $links as link_batch " \
                      "CREATE (link1)-[:ATTR]->(:Field {name: field.name, db: $db_source + '.' + field.name, attrs: [], dbtype: field.db_type}) " \
                      "RETURN link1.uuid as uuid;"
 
-create_links_with_hubs_query = "WITH $links as link_batch " \
-                               "UNWIND link_batch as link_record " \
-                               "MATCH (hub1:Entity {db: $db_source + '.' + link_record.main_link.ref_table }) " \
-                               "MATCH (hub2:Entity {db: $db_source + '.' + link_record.paired_link.ref_table }) " \
-                               "CREATE (hub1)-[:LINK {on: [link_record.main_link.ref_table_pk, link_record.main_link.fk]}]->(link1:Link {uuid: randomUUID(), name: link_record.name, db: $db_source + '.' + link_record.name, main: True})-[:LINK {on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk]}]->(hub2) " \
-                               "CREATE (hub2)-[:LINK {on: [link_record.paired_link.ref_table_pk, link_record.paired_link.fk]}]->(link2:Link {name: link_record.name + '.paired', db: $db_source + '.' + link_record.name + '.paired', main: False})-[:LINK {on: [link_record.main_link.fk, link_record.main_link.ref_table_pk]}]->(hub1) " \
-                               "WITH link_record.fields as fields_batch, link1, link2 " \
-                               "UNWIND fields_batch as field " \
-                               "CREATE (link1)-[:ATTR]->(:Field {name: field.name, db: $db_source + '.' + link1.name + '.' + field.name, attrs: [], dbtype: field.db_type}) " \
-                               "RETURN link1.uuid as uuid;"
+create_links_with_hubs_query = """
+                    WITH $links as link_batch 
+                    UNWIND link_batch as link_record 
+                        MERGE (hub1:Entity {name: link_record.main_link.ref_table, db_source: $db_source}) 
+                        MERGE (hub2:Entity {name: link_record.paired_link.ref_table, db_source: $db_source }) 
+                        CREATE (hub1)-[:LINK {on: [link_record.main_link.ref_table_pk, link_record.main_link.fk]}]->(link1:Link {uuid: randomUUID(), name: link_record.name, db: $link_record.db, db_source: $db_source, main: True})-[:LINK {on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk]}]->(hub2) 
+                        CREATE (hub2)-[:LINK {on: [link_record.paired_link.ref_table_pk, link_record.paired_link.fk]}]->(link2:Link {name: link_record.name, db: link_record.db, db_source: $db_source, main: False})-[:LINK {on: [link_record.main_link.fk, link_record.main_link.ref_table_pk]}]->(hub1) 
+                        WITH link_record.fields as fields_batch, link1, link2 
+                        UNWIND fields_batch as field 
+                            CREATE (link1)-[:ATTR]->(:Field {name: field.name, db: field.name, attrs: [], dbtype: field.db_type}) 
+                            RETURN link1.uuid as uuid;
+"""
 
 
 delete_links_query = "WITH $node_names as link_batch " \

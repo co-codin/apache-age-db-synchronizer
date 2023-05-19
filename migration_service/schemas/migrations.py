@@ -15,11 +15,16 @@ class MigrationIn(BaseModel):
     conn_string: str
 
 
-class MigrationOut(BaseModel):
+class SchemaOut(BaseModel):
     name: str
     tables_to_create: List[TableToCreate] = []
     tables_to_alter: List[TableToAlter] = []
     tables_to_delete: List[str] = []
+
+
+class MigrationOut(BaseModel):
+    name: str
+    schemas: list[SchemaOut] = []
 
 
 class MigrationPattern(BaseModel):
@@ -30,9 +35,8 @@ class MigrationPattern(BaseModel):
     fk_pattern = f"^(?:id)?({hub_prefix})_hash_fkey$"
 
 
-class ApplyMigration(BaseModel):
-    db_source: str
-
+class ApplySchema(BaseModel):
+    name: str
     hubs_to_create: List[HubToCreate] = []
     sats_to_create: List[SatToCreate] = []
     links_to_create: List[LinkToCreate] = []
@@ -52,3 +56,8 @@ class ApplyMigration(BaseModel):
             for table in itertools.chain(self.hubs_to_create, self.sats_to_create, self.links_to_create)
             if table.pk
         }
+
+
+class ApplyMigration(BaseModel):
+    db_source: str
+    schemas: list[ApplySchema] = []
