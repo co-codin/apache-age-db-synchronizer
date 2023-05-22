@@ -39,10 +39,10 @@ async def add_migration(
     db_source = migration_in.conn_string.rsplit('/', maxsplit=1)[1]
     migration = migrations.Migration(name=migration_in.name, guid=guid, db_source=db_source)
 
-    for ns in db_ns_to_table.keys():
-        tables_to_delete = graph_db_ns_to_table[ns] - db_ns_to_table[ns]
-        tables_to_create = db_ns_to_table[ns] - graph_db_ns_to_table[ns]
-        tables_to_alter = graph_db_ns_to_table[ns] & db_ns_to_table[ns]
+    for ns, db_tables in db_ns_to_table.items():
+        tables_to_delete = graph_db_ns_to_table[ns] - db_tables
+        tables_to_create = db_tables - graph_db_ns_to_table[ns]
+        tables_to_alter = graph_db_ns_to_table[ns] & db_tables
 
         logger.info(f'ns: {ns}')
         logger.info(f'tables to create: {tables_to_create}')
@@ -110,50 +110,54 @@ async def _alter_tables(
     db_records = await metadata_extractor.extract_table_col_type(table_names, schema.ns)
 
     loop = asyncio.get_running_loop()
-    neo4j_records = await loop.run_in_executor(
+    graph_db_records = await loop.run_in_executor(
         None, get_graph_db_table_col_type, db_source, schema.ns, table_names, age_session
     )
 
     logger.info(f'db records to alter: {db_records}')
-    logger.info(f'neo4j records to alter: {neo4j_records}')
+    logger.info(f'graph_db records to alter: {graph_db_records}')
 
     dataclass_db_tables = _create_dataclass_tables(db_records)
-    dataclass_neo4j_tables = _create_dataclass_tables(neo4j_records)
+    dataclass_graph_db_tables = _create_dataclass_tables(graph_db_records)
 
     logger.info(f'dataclass db tables to alter: {dataclass_db_tables}')
-    logger.info(f'dataclass neo4j tables to alter: {dataclass_neo4j_tables}')
+    logger.info(f'dataclass graph_db tables to alter: {dataclass_graph_db_tables}')
 
-    _do_tables_altering(dataclass_db_tables, dataclass_neo4j_tables, schema)
+    _do_tables_altering(dataclass_db_tables, dataclass_graph_db_tables, schema)
 
 
-async def _delete_tables(table_names: Set[str], migration: migrations.Migration):
+async def _delete_tables(table_names: Set[str], schema: migrations.Schema):
     for table in table_names:
-        migration.tables.append(migrations.Table(old_name=table))
+        schema.tables.append(migrations.Table(old_name=table))
 
 
 def _do_tables_altering(
         dataclass_db_tables: List[tables.Table],
-        dataclass_neo4j_tables: List[tables.Table],
+        dataclass_graph_db_tables: List[tables.Table],
         schema: migrations.Schema
 ):
-    for db_table, neo4j_table in zip(dataclass_db_tables, dataclass_neo4j_tables):
-        if db_table == neo4j_table:
+    for db_table, graph_db_table in zip(dataclass_db_tables, dataclass_graph_db_tables):
+        if db_table == graph_db_table:
             continue
         else:
-            table = migrations.Table(old_name=neo4j_table.name, new_name=neo4j_table.name)
+            table = migrations.Table(
+                old_name=graph_db_table.name,
+                new_name=graph_db_table.name,
+                db=graph_db_table.db
+            )
 
             schema.tables.append(table)
 
             db_table_field_names = set(db_table.field_to_type.keys())
-            neo4j_table_field_names = set(neo4j_table.field_to_type.keys())
+            graph_db_table_field_names = set(graph_db_table.field_to_type.keys())
 
-            fields_to_delete = neo4j_table_field_names - db_table_field_names
-            fields_to_create = db_table_field_names - neo4j_table_field_names
-            fields_to_alter = neo4j_table_field_names & db_table_field_names
+            fields_to_delete = graph_db_table_field_names - db_table_field_names
+            fields_to_create = db_table_field_names - graph_db_table_field_names
+            fields_to_alter = graph_db_table_field_names & db_table_field_names
 
             _create_fields(fields_to_create, db_table, table)
-            _alter_fields(fields_to_alter, db_table, neo4j_table, table)
-            _delete_fields(fields_to_delete, neo4j_table, table)
+            _alter_fields(fields_to_alter, db_table, graph_db_table, table)
+            _delete_fields(fields_to_delete, graph_db_table, table)
 
 
 def _create_fields(fields_to_create: Set[str], db_table: tables.Table, table: migrations.Table):
@@ -210,7 +214,9 @@ async def select_last_migration_tables_fields(session: SQLAlchemyAsyncSession):
 
 async def _select_last_migration(session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:
     last_migration = await session.execute(
-        select(migrations.Migration).order_by(migrations.Migration.created_at.desc()).limit(1)
+        select(migrations.Migration)
+        .order_by(migrations.Migration.created_at.desc())
+        .limit(1)
     )
     return last_migration.scalars().first()
 
@@ -219,12 +225,13 @@ async def _select_last_migration_by_db_source(db_source: str, session: SQLAlchem
     last_migration = await session.execute(
         select(migrations.Migration)
         .where(migrations.Migration.db_source == db_source)
-        .order_by(migrations.Migration.created_at.desc()).limit(1)
+        .order_by(migrations.Migration.created_at.desc())
+        .limit(1)
     )
     return last_migration.scalars().first()
 
 
-def _create_dataclass_tables(db_records: Sequence[Sequence]) -> List[tables.Table]:
+def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> List[tables.Table]:
     db_tables: List[tables.Table] = []
     if not db_records:
         return db_tables

@@ -22,11 +22,11 @@ def get_graph_db_table_col_type(db_source: str, ns: str, table_names: Set[str], 
     cursor = ag.execCypher(
         """
         MATCH (obj)-[:ATTR]->(f:Field) 
-        WHERE (obj:Entity OR obj:Sat OR obj:Link) AND obj.table IN $tables 
-        RETURN obj.table as name, f.db as f_name, f.dbtype as f_type 
+        WHERE (obj:Entity OR obj:Sat OR (obj:Link AND obj.main = True)) AND obj.db IN $tables 
+        RETURN obj.db as db_name, obj.name as name, f.db as f_name, f.dbtype as f_type 
         ORDER BY db_name;
         """,
         params=(table_names,),
-        cols=['name, f_name, f_type']
+        cols=['db_name, name, f_name, f_type']
     )
-    return [(row[0], row[1], row[2]) for row in cursor]
+    return [(row[0], row[1], row[2], row[3]) for row in cursor]

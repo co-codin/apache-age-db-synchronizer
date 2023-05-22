@@ -1,6 +1,6 @@
 import psycopg
 
-from typing import Set, Tuple, Optional
+from typing import Set, Tuple
 from abc import ABC, abstractmethod
 
 
@@ -55,7 +55,7 @@ class PostgresExtractor(MetadataExtractor):
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT tabs.table_name, cols.column_name, cols.data_type "
+                    "SELECT CONCAT(tabs.table_schema, '.', tabs.table_name), tabs.table_name, cols.column_name, cols.data_type "
                     "FROM information_schema.columns AS cols "
                     "JOIN information_schema.tables AS tabs "
                     "ON tabs.table_name = cols.table_name "

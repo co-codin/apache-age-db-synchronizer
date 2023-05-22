@@ -23,9 +23,9 @@ async def create_migration(
     return {'guid': guid}
 
 
-@router.get('/{migration_uuid}', response_model=MigrationOut)
-async def get_migration(migration_uuid: str, session: SQLAlchemyAsyncSession = Depends(db_session)):
-    migration_out = await select_migration(session, migration_uuid)
+@router.get('/{migration_guid}', response_model=MigrationOut)
+async def get_migration(migration_guid: str, session: SQLAlchemyAsyncSession = Depends(db_session)):
+    migration_out = await select_migration(session, migration_guid)
     return migration_out
 
 
