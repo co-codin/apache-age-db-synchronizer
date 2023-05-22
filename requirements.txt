@@ -3,7 +3,6 @@ uvicorn[standard]==0.18.3
 sqlalchemy[asyncio]==1.4.41
 psycopg[binary] == 3.1.4
 asyncpg==0.25.0
-neo4j==5.0.1
 httpx==0.22.0
 ecs-logging == 1.1.0
 pyjwt == 2.6.0
