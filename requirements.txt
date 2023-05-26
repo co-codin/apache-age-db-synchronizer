@@ -7,3 +7,5 @@ httpx==0.22.0
 ecs-logging == 1.1.0
 pyjwt == 2.6.0
 cryptography==38.0.3
+apache-age-python==0.0.5
+antlr4-python3-runtime==4.13.0
