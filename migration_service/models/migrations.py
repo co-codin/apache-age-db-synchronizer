@@ -31,8 +31,9 @@ class Migration(Base):
 class Schema(Base):
     __tablename__ = "schemas"
 
-    migration_guid = Column(String(36), ForeignKey(Migration.guid), primary_key=True)
-    name = Column(String(110), primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True, nullable=False)
+    migration_guid = Column(String(36), ForeignKey(Migration.guid))
+    name = Column(String(110), nullable=False)
     tables = relationship('Table')
 
 
@@ -40,7 +41,7 @@ class Table(Base):
     __tablename__ = "tables"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, nullable=False)
-    migration_id = Column(BigInteger, ForeignKey(Migration.id))
+    schema_id = Column(BigInteger, ForeignKey(Schema.id))
     db = Column(String(110), nullable=False)
     old_name = Column(String(110))
     new_name = Column(String(110))
