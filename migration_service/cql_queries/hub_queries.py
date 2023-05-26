@@ -1,18 +1,10 @@
 create_hubs_query = """
-                    WITH $hubs as hub_batch  
-                    UNWIND hub_batch as hub_record  
-                    MERGE (hub {name: hub_record.name}) 
-                    ON MATCH
-                        SET hub.uuid = randomUUID()
-                            hub.db = hub_record.db,  
-                    ON CREATE
-                        SET hub.uuid = randomUUID(),
-                            hub.db = hub_record.db
-                    WITH hub_record.fields as fields_batch, hub  
-                    UNWIND fields_batch as field 
-                    CREATE (hub)-[:ATTR]->(:Field {name: field.name, db: field.name, attrs: [], dbtype: field.db_type}) 
-                    RETURN hub.uuid as uuid;
-
+                    WITH %s as hub_batch
+                    UNWIND hub_batch as hub_record
+                    CREATE (hub:Entity {uuid: randomUUID(), name: hub_record.name, db: hub_record.db})
+                    UNWIND hub as field
+                    CREATE (hub)-[:ATTR]->(:Field {name: field.name, db: field.name, attrs: [], dbtype: field.db_type})
+                    RETURN hub
 """
 
 alter_hubs_query_create_fields = "WITH $hubs as hub_batch " \

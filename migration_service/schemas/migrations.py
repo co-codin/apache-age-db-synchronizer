@@ -28,11 +28,10 @@ class MigrationOut(BaseModel):
 
 
 class MigrationPattern(BaseModel):
-    hub_prefix: str = r'\w*'
     pk_pattern = "hash_key"
 
-    fk_table = f"^({hub_prefix})_sat$"
-    fk_pattern = f"^(?:id)?({hub_prefix})_hash_fkey$"
+    fk_table = f"^(\w*)_sat$"
+    fk_pattern = f"^(?:id)?(\w*)_hash_fkey$"
 
 
 class ApplySchema(BaseModel):

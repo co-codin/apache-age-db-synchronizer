@@ -70,7 +70,7 @@ class MigrationOutFormatter(MigrationFormatter):
 
     @staticmethod
     def _format_table_to_create(table: migrations.Table) -> TableToCreate:
-        table_to_create = TableToCreate(name=table.new_name)
+        table_to_create = TableToCreate(name=table.new_name, db=table.db)
         for field in table.fields:
             field_to_create = FieldToCreate(name=field.new_name, db_type=field.new_type)
             table_to_create.fields.append(field_to_create)
@@ -99,7 +99,7 @@ class ApplyMigrationFormatter(MigrationFormatter):
                     table_to_alter = self._format_table_to_alter(table)
                     fk_count = table.fk_count(self._fk_pattern_compiled)
 
-                    if not fk_count:
+                    if fk_count == 0:
                         apply_schema.hubs_to_alter.append(table_to_alter)
                     elif fk_count == 1:
                         apply_schema.sats_to_alter.append(table_to_alter)
@@ -111,7 +111,7 @@ class ApplyMigrationFormatter(MigrationFormatter):
     def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
         logger.info(f"{table.new_name} fk count = {fk_count}")
-        if not fk_count:
+        if fk_count == 0:
             hub = HubToCreate(name=table.new_name, db=table.db)
             apply_schema.hubs_to_create.append(hub)
             self._add_fields(hub, table.fields, pk_pattern=self._pk_pattern_compiled)

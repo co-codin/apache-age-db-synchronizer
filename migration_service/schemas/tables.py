@@ -17,11 +17,10 @@ class Table:
     field_to_type: Dict[str, str] = field(default_factory=dict)
 
     def __hash__(self):
-        return hash((self.name, self.field_to_type))
+        return hash((self.name, self.db, self.field_to_type))
 
 
 class TableToCreate(BaseModel):
-    schema: str
     name: str
     db: str
     fields: List[FieldToCreate] = []

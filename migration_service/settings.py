@@ -2,7 +2,6 @@ from collections import namedtuple
 
 from pydantic import BaseSettings
 
-import os
 
 Neo4jCreds = namedtuple('Neo4jCreds', ['username', 'password'])
 

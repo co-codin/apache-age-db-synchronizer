@@ -45,9 +45,11 @@ class PostgresExtractor(MetadataExtractor):
                     table_name = res[1]
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        ns_to_tables[ns].add(table_name)
+                        # if table_schema == 'dv_raw':
+                            ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        ns_to_tables[ns] = {table_name}
+                        # if table_schema == 'dv_raw':
+                            ns_to_tables[ns] = {table_name}
 
                 return ns_to_tables
 
@@ -61,7 +63,8 @@ class PostgresExtractor(MetadataExtractor):
                     "ON tabs.table_name = cols.table_name "
                     "WHERE tabs.table_name = ANY(%s) "
                     "AND tabs.table_type = 'BASE TABLE' "
-                    "AND tabs.table_schema = %s;",
+                    "AND tabs.table_schema = %s "
+                    "ORDER BY tabs.table_schema, tabs.table_name;",
                     (list(table_names), ns)
                 )
                 records = await cursor.fetchall()

@@ -61,7 +61,8 @@ async def add_migration(
             logger.info(f"last migration name: {last_migration.name}")
             logger.info(f"last migration created_at: {last_migration.created_at}")
             migration.prev_migration = last_migration
-        session.add(schema)
+
+        migration.schemas.append(schema)
 
     session.add(migration)
     await session.commit()
@@ -89,7 +90,7 @@ async def _create_tables(
     if not table_names:
         return
 
-    records = await metadata_extractor.extract_table_col_type(table_names, schema.ns)
+    records = await metadata_extractor.extract_table_col_type(table_names, schema.name)
     dataclass_db_tables = _create_dataclass_tables(records)
 
     for db_table in dataclass_db_tables:
@@ -107,11 +108,11 @@ async def _alter_tables(
 ):
     if not table_names:
         return
-    db_records = await metadata_extractor.extract_table_col_type(table_names, schema.ns)
+    db_records = await metadata_extractor.extract_table_col_type(table_names, schema.name)
 
     loop = asyncio.get_running_loop()
     graph_db_records = await loop.run_in_executor(
-        None, get_graph_db_table_col_type, db_source, schema.ns, table_names, age_session
+        None, get_graph_db_table_col_type, db_source, schema.name, table_names, age_session
     )
 
     logger.info(f'db records to alter: {db_records}')
@@ -128,7 +129,7 @@ async def _alter_tables(
 
 async def _delete_tables(table_names: Set[str], schema: migrations.Schema):
     for table in table_names:
-        schema.tables.append(migrations.Table(old_name=table))
+        schema.tables.append(migrations.Table(old_name=table, db=f'{schema.name}.{table}'))
 
 
 def _do_tables_altering(
@@ -137,6 +138,7 @@ def _do_tables_altering(
         schema: migrations.Schema
 ):
     for db_table, graph_db_table in zip(dataclass_db_tables, dataclass_graph_db_tables):
+        assert db_table.name == graph_db_table.name
         if db_table == graph_db_table:
             continue
         else:
@@ -171,11 +173,11 @@ def _alter_fields(
 ):
     for f_to_alter in fields_to_alter:
         db_type = db_table.field_to_type[f_to_alter]
-        neo4j_type = neo4j_table.field_to_type[f_to_alter]
-        if db_type == neo4j_type:
+        graph_db_type = neo4j_table.field_to_type[f_to_alter]
+        if db_type == graph_db_type:
             continue
         else:
-            field = migrations.Field(old_name=f_to_alter, new_name=f_to_alter, old_type=neo4j_type, new_type=db_type)
+            field = migrations.Field(old_name=f_to_alter, new_name=f_to_alter, old_type=graph_db_type, new_type=db_type)
             table.fields.append(field)
 
 
@@ -238,7 +240,6 @@ def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> List[tables
 
     db = db_records[0][0]
     name = db_records[0][1]
-
     db_tables.append(tables.Table(db=db, name=name))
 
     for record in db_records:
