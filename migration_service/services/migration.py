@@ -5,7 +5,6 @@ import re
 
 from typing import Sequence
 
-import age
 from age import Age
 from fastapi import status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
@@ -17,7 +16,9 @@ from migration_service.schemas.migrations import (
 from migration_service.services.migration_formatter import ApplyMigrationFormatter
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
+from migration_service.utils.migration_utils import (
+    get_highest_table_similarity_score, add_to_batches, delete_to_batches, alter_to_batches
+)
 
 from migration_service.age_queries.hub_queries import create_hubs_query, construct_create_hubs_query
 from migration_service.age_queries.sat_queries import (
@@ -90,7 +91,7 @@ async def _apply_alter_tables(apply_schema: ApplySchema, age_session: Age):
 
 
 def _delete_nodes_tx(nodes_to_delete: Sequence, age_session):
-    for node_batch in to_batches(nodes_to_delete):
+    for node_batch in delete_to_batches(nodes_to_delete):
         constructed_query = construct_delete_nodes_query(node_batch)
         str_query = constructed_query.as_string(age_session.connection)
 
@@ -99,7 +100,7 @@ def _delete_nodes_tx(nodes_to_delete: Sequence, age_session):
 
 
 def _add_hubs_tx(hubs_to_create: Sequence[HubToCreate], age_session: Age):
-    for hub_batch in to_batches(hubs_to_create):
+    for hub_batch in add_to_batches(hubs_to_create):
         constructed_query = construct_create_hubs_query(hub_batch)
         str_query = constructed_query.as_string(age_session.connection)
 
@@ -138,7 +139,9 @@ async def _add_sats(apply_schema: ApplySchema, migration_pattern: MigrationPatte
 
 
 def _add_sats_tx(add_sats_query: str, sats: list[dict], is_linked: bool, age_session: Age):
-    for sat_batch in to_batches(sats):
+    if not sats:
+        return
+    for sat_batch in add_to_batches(sats):
         constructed_query = construct_create_sats_query(sat_batch, is_linked)
         str_query = constructed_query.as_string(age_session.connection)
 
@@ -178,7 +181,9 @@ async def _add_links(
 
 
 def _add_links_tx(add_links_query: str, links: list[dict], is_linked: bool, age_session: Age):
-    for link_batch in to_batches(links):
+    if not links:
+        return
+    for link_batch in add_to_batches(links):
         constructed_query = construct_create_links_query(link_batch, is_linked)
         str_query = constructed_query.as_string(age_session.connection)
 
@@ -187,7 +192,9 @@ def _add_links_tx(add_links_query: str, links: list[dict], is_linked: bool, age_
 
 
 def _alter_nodes_tx(nodes_to_alter: Sequence[TableToAlter], age_session: Age):
-    for node_batch in to_batches(nodes_to_alter):
+    if not nodes_to_alter:
+        return
+    for node_batch in alter_to_batches(nodes_to_alter):
         constructed_query = construct_create_fields_query(node_batch)
         str_query = constructed_query.as_string(age_session.connection)
 

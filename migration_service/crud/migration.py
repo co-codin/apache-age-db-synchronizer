@@ -39,6 +39,12 @@ async def add_migration(
     db_source = migration_in.conn_string.rsplit('/', maxsplit=1)[1]
     migration = migrations.Migration(name=migration_in.name, guid=guid, db_source=db_source)
 
+    last_migration = await _select_last_migration_by_db_source(db_source, session)
+    if last_migration is not None:
+        logger.info(f"last migration name: {last_migration.name}")
+        logger.info(f"last migration created_at: {last_migration.created_at}")
+        migration.prev_migration = last_migration
+
     for ns, db_tables in db_ns_to_table.items():
         tables_to_delete = graph_db_ns_to_table[ns] - db_tables
         tables_to_create = db_tables - graph_db_ns_to_table[ns]
@@ -55,12 +61,6 @@ async def add_migration(
         await _create_tables(tables_to_create, metadata_extractor, schema)
         await _alter_tables(tables_to_alter, metadata_extractor, schema, db_source, age_session)
         await _delete_tables(tables_to_delete, schema)
-
-        last_migration = await _select_last_migration_by_db_source(db_source, session)
-        if last_migration is not None:
-            logger.info(f"last migration name: {last_migration.name}")
-            logger.info(f"last migration created_at: {last_migration.created_at}")
-            migration.prev_migration = last_migration
 
         migration.schemas.append(schema)
 

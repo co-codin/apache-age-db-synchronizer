@@ -30,7 +30,7 @@ class MigrationOut(BaseModel):
 class MigrationPattern(BaseModel):
     pk_pattern = "hash_key"
 
-    fk_table = f"^(\w*)_sat$"
+    fk_table = f"^(\w+)$"
     fk_pattern = f"^(?:id)?(\w*)_hash_fkey$"
 
 
