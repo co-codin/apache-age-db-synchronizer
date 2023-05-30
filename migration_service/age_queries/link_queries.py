@@ -4,13 +4,13 @@ create_links_query = """
                      WITH {links} as link_batch 
                      UNWIND link_batch as link_record 
 
-                     MERGE (link1 {{ name: link_record.name, db: link_record.db, main: 'True' }}) 
-                     MERGE (link2 {{ name: link_record.name, db: link_record.db, main: 'False' }}) 
+                     MERGE (link {{ name: link_record.name }})
+                     SET link.db = link_record.db
 
-                     WITH link_record.fields as fields_batch, link1, link2  
+                     WITH link_record.fields as fields_batch, link
                      UNWIND fields_batch as field  
 
-                     CREATE (link1)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}}) 
+                     CREATE (link)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}}) 
 """
 
 create_links_with_hubs_query = """
@@ -20,19 +20,16 @@ create_links_with_hubs_query = """
                     MERGE (hub1 {{ name: link_record.main_link.ref_table }}) 
                     MERGE (hub2 {{ name: link_record.paired_link.ref_table }}) 
                     
-                    MERGE (link1 {{ name: link_record.name }})
-                    MERGE (link2 {{ name: link_record.name }})
-                    
-                    SET link1.db = link_record.db, link1.main = 'True'
-                    SET link2.db = link_record.db, link2.main = 'True'
+                    MERGE (link {{ name: link_record.name }})
+                    SET link.db = link_record.db
 
-                    CREATE (hub1)-[:LINK {{on: [link_record.main_link.ref_table_pk, link_record.main_link.fk] }}]->(link1)-[:LINK {{ on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk] }}]->(hub2) 
-                    CREATE (hub2)-[:LINK {{on: [link_record.paired_link.ref_table_pk, link_record.paired_link.fk] }}]->(link2)-[:LINK {{ on: [link_record.main_link.fk, link_record.main_link.ref_table_pk] }}]->(hub1) 
+                    CREATE (hub1)-[:LINK {{on: [link_record.main_link.ref_table_pk, link_record.main_link.fk] }}]->(link)-[:LINK {{ on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk] }}]->(hub2) 
+                    CREATE (hub2)-[:LINK {{on: [link_record.paired_link.ref_table_pk, link_record.paired_link.fk] }}]->(link)-[:LINK {{ on: [link_record.main_link.fk, link_record.main_link.ref_table_pk] }}]->(hub1) 
 
-                    WITH link_record.fields as fields_batch, link1, link2 
+                    WITH link_record.fields as fields_batch, link, link
                     UNWIND fields_batch as field 
 
-                    CREATE (link1)-[:ATTR]->(:Field {{ name: field.name, db: field.name, attrs: [], dbtype: field.db_type }}) 
+                    CREATE (link)-[:ATTR]->(:Field {{ name: field.name, db: field.name, attrs: [], dbtype: field.db_type }}) 
 """
 
 delete_links_query = """
