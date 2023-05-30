@@ -44,9 +44,7 @@ class ApplySchema(BaseModel):
     sats_to_alter: List[TableToAlter] = []
     links_to_alter: List[TableToAlter] = []
 
-    hubs_to_delete: List[str] = []
-    sats_to_delete: List[str] = []
-    links_to_delete: List[str] = []
+    tables_to_delete: List[str] = []
 
     @property
     def tables_to_pks(self) -> Dict[str, str]:

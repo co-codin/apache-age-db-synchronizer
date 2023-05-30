@@ -30,7 +30,7 @@ class MigrationFormatter(ABC):
             if field.old_name is None and field.new_name is not None:
                 # Field to create
                 table_to_alter.fields_to_create.append(
-                    FieldToCreate(name=field.new_name, db_type=field.new_type)
+                    FieldToCreate(name=field.new_name, db_type=field.new_type, is_key=field.is_key)
                 )
             elif field.old_name is not None and field.new_name is None:
                 # Field to delete
@@ -39,7 +39,7 @@ class MigrationFormatter(ABC):
                 # Field to alter
                 table_to_alter.fields_to_alter.append(
                     FieldToAlter(
-                        name=field.new_name, old_type=field.old_type, new_type=field.new_type
+                        name=field.new_name, old_type=field.old_type, new_type=field.new_type, is_key=field.is_key
                     )
                 )
         return table_to_alter
@@ -72,7 +72,7 @@ class MigrationOutFormatter(MigrationFormatter):
     def _format_table_to_create(table: migrations.Table) -> TableToCreate:
         table_to_create = TableToCreate(name=table.new_name, db=table.db)
         for field in table.fields:
-            field_to_create = FieldToCreate(name=field.new_name, db_type=field.new_type)
+            field_to_create = FieldToCreate(name=field.new_name, db_type=field.new_type, is_key=field.is_key)
             table_to_create.fields.append(field_to_create)
         return table_to_create
 
@@ -108,6 +108,16 @@ class ApplyMigrationFormatter(MigrationFormatter):
             apply_migration.schemas.append(apply_schema)
         return apply_migration
 
+    def set_keys(self):
+        for schema in self._migration.schemas:
+            for table in schema.tables:
+                for field in table.fields:
+                    if field.new_name and (
+                            self._pk_pattern_compiled.search(field.new_name)
+                            or self._fk_pattern_compiled.search(field.new_name)
+                    ):
+                        field.is_key = True
+
     def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
         logger.info(f"{table.new_name} fk count = {fk_count}")
@@ -125,19 +135,10 @@ class ApplyMigrationFormatter(MigrationFormatter):
             link = LinkToCreate(name=table.new_name, db=table.db)
             apply_schema.links_to_create.append(link)
             self._add_fields(link, table.fields, pk_pattern=self._pk_pattern_compiled)
-        else:
-            return
 
-    def _format_table_to_delete(self, table: Table, apply_schema: ApplySchema):
-        fk_count = table.fk_count(self._fk_pattern_compiled)
-        if not fk_count:
-            apply_schema.hubs_to_delete.append(table.old_name)
-        elif fk_count == 1:
-            apply_schema.sats_to_delete.append(table.old_name)
-        elif fk_count == 2:
-            apply_schema.links_to_create.append(table.old_name)
-        else:
-            return
+    @staticmethod
+    def _format_table_to_delete(table: Table, apply_schema: ApplySchema):
+        apply_schema.tables_to_delete.append(table.old_name)
 
     @staticmethod
     def _add_fields(

@@ -2,7 +2,7 @@ import re
 
 from datetime import datetime
 
-from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey
+from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -66,3 +66,4 @@ class Field(Base):
     new_name = Column(String(110))
     old_type = Column(String(36))
     new_type = Column(String(36))
+    is_key = Column(Boolean, default=False)

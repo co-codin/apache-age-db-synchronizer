@@ -45,9 +45,11 @@ async def apply_migration(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     guid = last_migration.guid
-    last_migration = ApplyMigrationFormatter(
+    apply_migration_formatter = ApplyMigrationFormatter(
         last_migration, migration_pattern.fk_pattern, migration_pattern.pk_pattern
-    ).format()
+    )
+    apply_migration_formatter.set_keys()
+    last_migration = apply_migration_formatter.format()
 
     logger.info(f"last migration: {last_migration}")
     for schema in last_migration.schemas:
@@ -65,7 +67,7 @@ async def _apply_delete_tables(apply_schema: ApplySchema, age_session: Age):
     await loop.run_in_executor(
         None,
         _delete_nodes_tx,
-        itertools.chain(apply_schema.hubs_to_delete, apply_schema.sats_to_delete, apply_schema.links_to_delete),
+        apply_schema.tables_to_delete,
         age_session
     )
 
@@ -95,7 +97,7 @@ def _delete_nodes_tx(nodes_to_delete: Sequence, age_session):
         constructed_query = construct_delete_nodes_query(node_batch)
         str_query = constructed_query.as_string(age_session.connection)
 
-        age_session.execute(delete_nodes_query.format(nodes=str_query))
+        age_session.execCypher(delete_nodes_query.format(nodes=str_query))
         age_session.commit()
 
 
