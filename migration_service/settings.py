@@ -2,7 +2,6 @@ from collections import namedtuple
 
 from pydantic import BaseSettings
 
-import os
 
 Neo4jCreds = namedtuple('Neo4jCreds', ['username', 'password'])
 
@@ -16,20 +15,22 @@ class Settings(BaseSettings):
     log_dir: str = "/var/log/n3dwh/"
     log_name: str = "graph_db_migrater.log"
 
-    db_sources: dict = {
-        'dv_raw': os.environ.get('dwh_graph_db_migrater_db_source', 'postgresql://postgres:dwh@db.lan:5432/dwh')
-    }
-
     # Database constants
     db_connection_string: str = 'postgresql+asyncpg://postgres:dwh@db.lan:5432/graph_migrations'
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/graph_migrations'
 
-    # Neo4j constants
-    neo4j_connection_string: str = 'bolt://graphdb.lan:7687'
-    neo4j_auth: Neo4jCreds = (os.environ.get('dwh_graph_db_migrater_neo4j_connection_user', 'neo4j'), os.environ.get('dwh_graph_db_migrater_neo4j_connection_password', 'dwh'))
+    # age constants
+    age_connection_string: str = 'postgresql://postgres:dwh@graphdb.lan:5432/postgres'
 
     # Service's urls
     api_iam = 'http://iam.lan:8000'
+
+    # RabbitMQ constants
+    mq_connection_string: str = 'amqp://dwh:dwh@rabbit.lan:5672'
+
+    migration_exchange = 'graph_migration'
+    migration_request_queue = 'migration_requests'
+    migrations_result_queue = 'migration_results'
 
     class Config:
         env_prefix = "dwh_graph_db_migrater_"

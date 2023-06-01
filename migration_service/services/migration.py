@@ -1,113 +1,128 @@
+import asyncio
 import logging
 import itertools
 import re
 
-from typing import Iterable
+from typing import Sequence
 
+from age import Age
 from fastapi import status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession as SQLAlchemyAsyncSession
-from neo4j import AsyncSession as Neo4jAsyncSession, AsyncManagedTransaction
 
-from migration_service.cql_queries.sat_queries import create_sats_query, create_sats_with_hubs_query
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
-from migration_service.schemas.migrations import MigrationPattern, HubToCreate, ApplyMigration, TableToAlter
+from migration_service.schemas.migrations import (
+    MigrationPattern, HubToCreate, TableToAlter, ApplySchema
+)
 from migration_service.services.migration_formatter import ApplyMigrationFormatter
 
 from migration_service.crud.migration import select_last_migration_tables_fields
-from migration_service.utils.migration_utils import to_batches, get_highest_table_similarity_score
-
-from migration_service.cql_queries.node_queries import (
-    delete_nodes_query, alter_nodes_query_create_fields, alter_nodes_query_delete_fields,
-    alter_nodes_query_alter_fields
+from migration_service.utils.migration_utils import (
+    get_highest_table_similarity_score, add_to_batches, delete_to_batches, alter_to_batches
 )
-from migration_service.cql_queries.hub_queries import create_hubs_query
 
-from migration_service.cql_queries.link_queries import (
-    create_links_query, delete_links_query, create_links_with_hubs_query
+from migration_service.age_queries.hub_queries import create_hubs_query, construct_create_hubs_query
+from migration_service.age_queries.sat_queries import (
+    create_sats_with_hubs_query, construct_create_sats_query, create_sats_query
 )
+from migration_service.age_queries.link_queries import (
+    create_links_query, create_links_with_hubs_query, construct_create_links_query
+)
+from migration_service.age_queries.node_queries import (
+    delete_nodes_query, construct_delete_nodes_query, alter_nodes_query_create_fields, alter_nodes_query_delete_fields,
+    alter_nodes_query_alter_fields, construct_delete_fields_query, construct_alter_fields_query,
+    construct_create_fields_query
+)
+
 
 logger = logging.getLogger(__name__)
 
 
 async def apply_migration(
-        migration_pattern: MigrationPattern, session: SQLAlchemyAsyncSession, graph_session: Neo4jAsyncSession
+        migration_pattern: MigrationPattern, session: SQLAlchemyAsyncSession, age_session
 ) -> str:
     last_migration = await select_last_migration_tables_fields(session)
     if not last_migration:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     guid = last_migration.guid
-    last_migration = ApplyMigrationFormatter(
+    apply_migration_formatter = ApplyMigrationFormatter(
         last_migration, migration_pattern.fk_pattern, migration_pattern.pk_pattern
-    ).format()
+    )
+    apply_migration_formatter.set_keys()
+    last_migration = apply_migration_formatter.format()
 
     logger.info(f"last migration: {last_migration}")
+    for schema in last_migration.schemas:
+        ns = f'{last_migration.db_source}.{schema.name}'
+        ag = await asyncio.get_running_loop().run_in_executor(None, age_session.setGraph, ns)
 
-    await _apply_delete_tables(last_migration, graph_session)
-    await _apply_create_tables(last_migration, migration_pattern, graph_session)
-    await _apply_alter_tables(last_migration, graph_session)
+        await _apply_delete_tables(schema, ag)
+        await _apply_create_tables(schema, migration_pattern, ag)
+        await _apply_alter_tables(schema, ag)
     return guid
 
 
-async def _apply_delete_tables(apply_migration: ApplyMigration, graph_session: Neo4jAsyncSession):
-    hubs_sats_to_delete = (
-        table
-        for table in itertools.chain(apply_migration.hubs_to_delete, apply_migration.sats_to_delete)
+async def _apply_delete_tables(apply_schema: ApplySchema, age_session: Age):
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None,
+        _delete_nodes_tx,
+        apply_schema.tables_to_delete,
+        age_session
     )
-    await graph_session.execute_write(_delete_nodes_tx, hubs_sats_to_delete, delete_nodes_query)
-    await graph_session.execute_write(_delete_nodes_tx, apply_migration.links_to_delete, delete_links_query)
 
 
 async def _apply_create_tables(
-        apply_migration: ApplyMigration,
-        migration_pattern: MigrationPattern,
-        graph_session: Neo4jAsyncSession
+        apply_schema: ApplySchema, migration_pattern: MigrationPattern, age_session: Age
 ):
-    hub_dicts_to_create = (hub.dict() for hub in apply_migration.hubs_to_create)
+    hub_dicts_to_create = (hub.dict() for hub in apply_schema.hubs_to_create)
+    loop = asyncio.get_running_loop()
 
-    await graph_session.execute_write(_add_hubs_tx, hub_dicts_to_create, apply_migration.db_source)
-    await graph_session.execute_write(_add_links_tx, apply_migration, migration_pattern)
-    await graph_session.execute_write(_add_sats_tax, apply_migration, migration_pattern)
+    await loop.run_in_executor(None, _add_hubs_tx, hub_dicts_to_create, age_session)
+    await _add_links(apply_schema, migration_pattern, age_session)
+    await _add_sats(apply_schema, migration_pattern, age_session)
 
 
-async def _apply_alter_tables(
-        apply_migration: ApplyMigration,
-        graph_session: Neo4jAsyncSession
-):
+async def _apply_alter_tables(apply_schema: ApplySchema, age_session: Age):
     nodes_to_alter = (
         node.dict()
-        for node in itertools.chain(apply_migration.hubs_to_alter, apply_migration.sats_to_alter, apply_migration.links_to_alter)
+        for node in itertools.chain(apply_schema.hubs_to_alter, apply_schema.sats_to_alter, apply_schema.links_to_alter)
     )
-
-    await graph_session.execute_write(_alter_nodes_tx, nodes_to_alter, apply_migration.db_source)
-
-
-async def _delete_nodes_tx(tx: AsyncManagedTransaction, nodes_to_delete: Iterable[str], delete_query: str):
-    for node_batch in to_batches(nodes_to_delete):
-        logger.info(f'nodes_batch: {node_batch}')
-        await tx.run(delete_query, node_names=node_batch)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _alter_nodes_tx, nodes_to_alter, age_session)
 
 
-async def _add_hubs_tx(tx: AsyncManagedTransaction, hubs_to_create: Iterable[HubToCreate], db_source: str):
-    for hub_batch in to_batches(hubs_to_create):
-        await tx.run(create_hubs_query, hubs=hub_batch, db_source=db_source)
+def _delete_nodes_tx(nodes_to_delete: Sequence, age_session):
+    for node_batch in delete_to_batches(nodes_to_delete):
+        constructed_query = construct_delete_nodes_query(node_batch)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(delete_nodes_query.format(nodes=str_query))
+        age_session.commit()
 
 
-async def _add_sats_tax(
-        tx: AsyncManagedTransaction, apply_migration: ApplyMigration, migration_pattern: MigrationPattern
-):
+def _add_hubs_tx(hubs_to_create: Sequence[HubToCreate], age_session: Age):
+    for hub_batch in add_to_batches(hubs_to_create):
+        constructed_query = construct_create_hubs_query(hub_batch)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(create_hubs_query.format(hubs=str_query))
+        age_session.commit()
+
+
+async def _add_sats(apply_schema: ApplySchema, migration_pattern: MigrationPattern, age_session: Age):
     sats_with_hub = []
     sats_without_hub = []
 
     sat_pattern = re.compile(migration_pattern.fk_table)
-    tables_to_pks = apply_migration.tables_to_pks
+    tables_to_pks = apply_schema.tables_to_pks
 
-    for sat in apply_migration.sats_to_create:
+    for sat in apply_schema.sats_to_create:
         table_prefix = sat_pattern.search(sat.name)
-        table_name = get_highest_table_similarity_score(table_prefix.group(1), tables_to_pks.keys(), sat.name)
-
-        logger.info(f'table prefix: {table_prefix.group(1)}')
-        logger.info(f'table: {table_name}')
+        if table_prefix:
+            table_name = get_highest_table_similarity_score(table_prefix.group(1), tables_to_pks.keys(), sat.name)
+        else:
+            table_name = None
 
         try:
             sat.link.ref_table = table_name
@@ -116,24 +131,38 @@ async def _add_sats_tax(
         except KeyError:
             sats_without_hub.append(sat.dict(exclude={'link'}))
 
-    for sat_batch in to_batches(sats_with_hub):
-        await tx.run(create_sats_with_hubs_query, sats=sat_batch, db_source=apply_migration.db_source)
-    for sat_batch in to_batches(sats_without_hub):
-        await tx.run(create_sats_query, sats=sat_batch, db_source=apply_migration.db_source)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, _add_sats_tx, create_sats_with_hubs_query, sats_with_hub, True, age_session
+    )
+    await loop.run_in_executor(
+        None, _add_sats_tx, create_sats_query, sats_without_hub, False, age_session
+    )
 
 
-async def _add_links_tx(
-        tx: AsyncManagedTransaction,
-        apply_migration: ApplyMigration,
-        migration_pattern: MigrationPattern
+def _add_sats_tx(add_sats_query: str, sats: list[dict], is_linked: bool, age_session: Age):
+    if not sats:
+        return
+    for sat_batch in add_to_batches(sats):
+        constructed_query = construct_create_sats_query(sat_batch, is_linked)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(add_sats_query.format(sats=str_query))
+        age_session.commit()
+
+
+async def _add_links(
+        apply_schema: ApplySchema,
+        migration_pattern: MigrationPattern,
+        age_session: Age
 ):
     links_with_hubs = []
     links_without_hubs = []
 
     fk_pattern_compiled = re.compile(migration_pattern.fk_pattern)
-    tables_to_pks = apply_migration.tables_to_pks
+    tables_to_pks = apply_schema.tables_to_pks
 
-    for link in apply_migration.links_to_create:
+    for link in apply_schema.links_to_create:
         link.match_fks_to_fk_tables(fk_pattern_compiled, tables_to_pks.keys())
         try:
             link.main_link.ref_table_pk = tables_to_pks[link.main_link.ref_table]
@@ -144,14 +173,44 @@ async def _add_links_tx(
                 link.dict(exclude={'main_link', 'paired_link'})
             )
 
-    for link_batch in to_batches(links_with_hubs):
-        await tx.run(create_links_with_hubs_query, links=link_batch, db_source=apply_migration.db_source)
-    for link_batch in to_batches(links_without_hubs):
-        await tx.run(create_links_query, links=link_batch, db_source=apply_migration.db_source)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, _add_links_tx, create_links_with_hubs_query, links_with_hubs, True, age_session
+    )
+    await loop.run_in_executor(
+        None, _add_links_tx, create_links_query, links_without_hubs, False, age_session
+    )
 
 
-async def _alter_nodes_tx(tx: AsyncManagedTransaction, nodes_to_alter: Iterable[TableToAlter], db_source: str):
-    for node_batch in to_batches(nodes_to_alter):
-        await tx.run(alter_nodes_query_create_fields, nodes=node_batch, db_source=db_source)
-        await tx.run(alter_nodes_query_delete_fields, nodes=node_batch, db_source=db_source)
-        await tx.run(alter_nodes_query_alter_fields, nodes=node_batch, db_source=db_source)
+def _add_links_tx(add_links_query: str, links: list[dict], is_linked: bool, age_session: Age):
+    if not links:
+        return
+    for link_batch in add_to_batches(links):
+        constructed_query = construct_create_links_query(link_batch, is_linked)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(add_links_query.format(links=str_query))
+        age_session.commit()
+
+
+def _alter_nodes_tx(nodes_to_alter: Sequence[TableToAlter], age_session: Age):
+    if not nodes_to_alter:
+        return
+    for node_batch in alter_to_batches(nodes_to_alter):
+        constructed_query = construct_create_fields_query(node_batch)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(alter_nodes_query_create_fields.format(nodes=str_query))
+        age_session.commit()
+
+        constructed_query = construct_delete_fields_query(node_batch)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(alter_nodes_query_delete_fields.format(nodes=str_query))
+        age_session.commit()
+
+        constructed_query = construct_alter_fields_query(node_batch)
+        str_query = constructed_query.as_string(age_session.connection)
+
+        age_session.execCypher(alter_nodes_query_alter_fields.format(nodes=str_query))
+        age_session.commit()

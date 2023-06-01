@@ -2,7 +2,7 @@ import re
 
 from datetime import datetime
 
-from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey
+from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -24,15 +24,25 @@ class Migration(Base):
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, server_onupdate=func.now()
     )
 
-    tables = relationship('Table')
+    schemas = relationship('Schema')
     prev_migration = relationship('Migration', remote_side=[id], uselist=False, backref='next_migration')
+
+
+class Schema(Base):
+    __tablename__ = "schemas"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, nullable=False)
+    migration_guid = Column(String(36), ForeignKey(Migration.guid))
+    name = Column(String(110), nullable=False)
+    tables = relationship('Table')
 
 
 class Table(Base):
     __tablename__ = "tables"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, nullable=False)
-    migration_id = Column(BigInteger, ForeignKey(Migration.id))
+    schema_id = Column(BigInteger, ForeignKey(Schema.id))
+    db = Column(String(110), nullable=False)
     old_name = Column(String(110))
     new_name = Column(String(110))
 
@@ -56,3 +66,4 @@ class Field(Base):
     new_name = Column(String(110))
     old_type = Column(String(36))
     new_type = Column(String(36))
+    is_key = Column(Boolean, default=False)
