@@ -19,6 +19,11 @@ secrets:
   neo4j_connection_string: ""
   neo4j_connection_user: ""
   neo4j_connection_password: ""
+  mq_connection_string: ""
+  migration_exchange: ""
+  migration_request_queue: ""
+  migrations_result_queue: ""
+  
 
 configmap:
   api_iam: "http://iam.smartdwh:8000"

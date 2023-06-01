@@ -56,6 +56,10 @@ build-migrations:
       --set-string secrets.neo4j_connection_string="$NEO4J_CONNECTION_STRING"
       --set-string secrets.neo4j_connection_user="$NEO4J_CONNECTION_USER"
       --set-string secrets.neo4j_connection_password="$NEO4J_CONNECTION_PASSWORD"
+      --set-string secrets.mq_connection_string="$MQ_CONN_STRING"
+      --set-string secrets.migration_exchange="graph_migration-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.migration_request_queue="migration_requests-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.migrations_result_queue="migration_results-$CI_ENVIRONMENT_NAME"
       --set image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA 
       --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 
