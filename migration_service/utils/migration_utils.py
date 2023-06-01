@@ -3,7 +3,19 @@ import difflib
 from typing import Iterable, Optional
 
 
-def alter_to_batches(records: Iterable, size: int = 100):
+def to_batches(iterable: Iterable, size: int = 50):
+    batch_records = []
+    for record in iterable:
+        batch_records.append(record)
+        if len(batch_records) >= size:
+            yield batch_records
+            batch_records.clear()
+
+    if batch_records:
+        yield batch_records
+
+
+def alter_to_batches(records: Iterable, size: int = 50):
     batches = []
     for rec in records:
         for fields_key in ('fields_to_create', 'fields_to_alter', 'fields_to_delete'):
@@ -23,7 +35,7 @@ def alter_to_batches(records: Iterable, size: int = 100):
         yield batches
 
 
-def delete_to_batches(records: Iterable, size: int = 100):
+def delete_to_batches(records: Iterable, size: int = 50):
     batches = []
     for rec in records:
         batches.append(rec)
@@ -35,7 +47,7 @@ def delete_to_batches(records: Iterable, size: int = 100):
         yield batches
 
 
-def add_to_batches(records: Iterable, size: int = 100):
+def add_to_batches(records: Iterable, size: int = 50):
     batches = []
     for rec in records:
 

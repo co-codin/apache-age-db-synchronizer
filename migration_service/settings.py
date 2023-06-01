@@ -20,10 +20,17 @@ class Settings(BaseSettings):
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/graph_migrations'
 
     # age constants
-    age_connection_string: str = 'postgresql://postgres:dwh@graphdb.lan:5455/postgres'
+    age_connection_string: str = 'postgresql://postgres:dwh@graphdb.lan:5432/postgres'
 
     # Service's urls
     api_iam = 'http://iam.lan:8000'
+
+    # RabbitMQ constants
+    mq_connection_string: str = 'amqp://dwh:dwh@rabbit.lan:5672'
+
+    migration_exchange = 'graph_migration'
+    migration_request_queue = 'migration_requests'
+    migrations_result_queue = 'migration_results'
 
     class Config:
         env_prefix = "dwh_graph_db_migrater_"

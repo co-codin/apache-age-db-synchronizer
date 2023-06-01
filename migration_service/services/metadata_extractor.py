@@ -64,7 +64,7 @@ class PostgresExtractor(MetadataExtractor):
                     "WHERE tabs.table_name = ANY(%s) "
                     "AND tabs.table_type = 'BASE TABLE' "
                     "AND tabs.table_schema = %s "
-                    "ORDER BY tabs.table_schema, tabs.table_name;",
+                    "ORDER BY tabs.table_schema, tabs.table_name, cols.column_name",
                     (list(table_names), ns)
                 )
                 records = await cursor.fetchall()
