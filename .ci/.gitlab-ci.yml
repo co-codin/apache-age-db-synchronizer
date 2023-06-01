@@ -60,6 +60,7 @@ build-migrations:
       --set-string secrets.migration_exchange="graph_migration-$CI_ENVIRONMENT_NAME"
       --set-string secrets.migration_request_queue="migration_requests-$CI_ENVIRONMENT_NAME"
       --set-string secrets.migrations_result_queue="migration_results-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.age_connection_string="$AGE_CONN_STRING"
       --set image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA 
       --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 

@@ -19,6 +19,7 @@ secrets:
   neo4j_connection_string: ""
   neo4j_connection_user: ""
   neo4j_connection_password: ""
+  age_connection_string: ""
   mq_connection_string: ""
   migration_exchange: ""
   migration_request_queue: ""

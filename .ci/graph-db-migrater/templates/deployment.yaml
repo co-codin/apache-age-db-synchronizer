@@ -32,6 +32,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "graph-db-migrater.fullname" . }}-secret
                   key: dwh_graph_db_migrater_db_migration_connection_string
+            - name: dwh_graph_db_migrater_age_connection_string
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "graph-db-migrater.fullname" . }}-secret
+                  key: dwh_graph_db_migrater_age_connection_string
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
