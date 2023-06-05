@@ -137,3 +137,4 @@ async def create_channel() -> PikaChannel:
         yield PikaChannel(channel)
     finally:
         channel.close()
+        PikaChannel.conn = None

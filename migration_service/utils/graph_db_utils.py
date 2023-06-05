@@ -20,6 +20,22 @@ def get_graph_db_tables(db_namespaces: set[str], age_session: Age) -> dict[str, 
     return graph_to_tables
 
 
+def get_graph_db_table(db_namespaces: set[str], table_name: str, age_session: Age) -> dict[str, set[str]]:
+    graph_to_tables: dict[str, set[str]] = {}
+    for db_ns in db_namespaces:
+        ag = age_session.setGraph(db_ns)
+        cursor = ag.execCypher(
+            """
+            MATCH (obj {name: %s}) 
+            RETURN obj.name as name
+            """,
+            cols=['name'],
+            params=(table_name,)
+        )
+        graph_to_tables[db_ns] = {row[0] for row in cursor}
+    return graph_to_tables
+
+
 def get_graph_db_table_col_type(
         db_source: str, ns: str, table_names: Set[str], age_session: Age
 ) -> list[tuple[str, str, str, str]]:
