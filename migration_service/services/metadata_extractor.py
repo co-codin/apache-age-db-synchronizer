@@ -49,11 +49,9 @@ class PostgresExtractor(MetadataExtractor):
                     table_name = res[1]
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns].add(table_name)
+                        ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns] = {table_name}
+                        ns_to_tables[ns] = {table_name}
 
                 return ns_to_tables
 
