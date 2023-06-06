@@ -97,7 +97,11 @@ async def synchronize(migration_request: str, channel: PikaChannel):
     migration_request = json.loads(migration_request)
 
     migration_in = MigrationIn(
-        **{'name': migration_request['name'], 'conn_string': migration_request['conn_string']}
+        **{
+            'name': migration_request['name'],
+            'conn_string': migration_request['conn_string'],
+            'object_name': migration_request['object_name']
+        }
     )
     migration_pattern = MigrationPattern(**migration_request['migration_pattern'])
     source_registry_guid = migration_request['source_registry_guid']
@@ -115,7 +119,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
                     {
                         'conn_string': migration_in.conn_string,
                         'graph_migration': graph_migration.dict(),
-                        'source_registry_guid': source_registry_guid
+                        'source_registry_guid': source_registry_guid,
+                        'object_name': migration_in.object_name
                     }
                 )
             )

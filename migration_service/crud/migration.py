@@ -16,7 +16,7 @@ from migration_service.schemas.migrations import MigrationIn, MigrationOut
 from migration_service.services.migration_formatter import MigrationOutFormatter
 from migration_service.services.metadata_extractor import MetaDataExtractorFactory, MetadataExtractor
 
-from migration_service.utils.graph_db_utils import get_graph_db_tables, get_graph_db_table_col_type
+from migration_service.utils.graph_db_utils import get_graph_db_tables, get_graph_db_table_col_type, get_graph_db_table
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +27,18 @@ async def add_migration(
         age_session: Age
 ) -> str:
     metadata_extractor = MetaDataExtractorFactory.build(conn_string=migration_in.conn_string)
-    db_ns_to_table = await metadata_extractor.extract_table_names()
-
     loop = asyncio.get_running_loop()
 
-    graph_db_ns_to_table = await loop.run_in_executor(
-        None, get_graph_db_tables, db_ns_to_table.keys(), age_session
-    )
+    if migration_in.object_name:
+        db_ns_to_table = await metadata_extractor.extract_table_name(migration_in.object_name)
+        graph_db_ns_to_table = await loop.run_in_executor(
+            None, get_graph_db_table, db_ns_to_table.keys(), migration_in.object_name, age_session
+        )
+    else:
+        db_ns_to_table = await metadata_extractor.extract_table_names()
+        graph_db_ns_to_table = await loop.run_in_executor(
+            None, get_graph_db_tables, db_ns_to_table.keys(), age_session
+        )
 
     guid = str(uuid.uuid4())
     db_source = migration_in.conn_string.rsplit('/', maxsplit=1)[1]
