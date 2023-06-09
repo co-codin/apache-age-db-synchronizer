@@ -1,4 +1,7 @@
+import binascii
+
 import psycopg
+import base64
 
 from typing import Set, Tuple
 from abc import ABC, abstractmethod
@@ -29,6 +32,31 @@ class MetadataExtractor(ABC):
 class PostgresExtractor(MetadataExtractor):
     def __init__(self, conn_string: str):
         super().__init__(conn_string)
+        self._postgres_to_system_types = {
+            'boolean': 'bool',
+
+            'character varying': 'str',
+            'character': 'str',
+            'uuid': 'str',
+
+            'text': 'text',
+
+            'smallint': 'int',
+            'integer': 'int',
+            'bigint': 'int',
+
+            'double precision': 'float',
+            'real': 'float',
+            'numeric': 'float',
+            'decimal': 'float',
+
+            'date': 'date',
+            'timestamp without time zone': 'datetime',
+            'timestamp with time zone': 'datetime',
+
+            # 'jsonb': 'json',
+            # 'ARRAY': 'list'
+        }
 
     async def extract_table_names(self) -> dict[str, set[str]]:
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
@@ -78,10 +106,9 @@ class PostgresExtractor(MetadataExtractor):
                         ns_to_tables[ns].add(table_name)
                     except KeyError:
                         ns_to_tables[ns] = {table_name}
-
                 return ns_to_tables
 
-    async def extract_table_col_type(self, table_names: Set[str], ns: str) -> Tuple[str, str]:
+    async def extract_table_col_type(self, table_names: Set[str], ns: str) -> list[tuple[str, str, str, str]]:
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
@@ -96,7 +123,27 @@ class PostgresExtractor(MetadataExtractor):
                     (list(table_names), ns)
                 )
                 records = await cursor.fetchall()
-        return records
+                result = []
+                for row in records:
+                    system_type = self.from_db_type_to_system_type(row[-1])
+                    result.append((row[0], row[1], row[2], system_type))
+        return result
+
+    def from_db_type_to_system_type(self, var: str) -> str:
+        system_type = self._postgres_to_system_types.get(var, '')
+
+        if (system_type == 'str' or system_type == 'text') and self.is_b64(var):
+            system_type = 'b64binary'
+
+        return system_type
+
+    @staticmethod
+    def is_b64(string: str) -> bool:
+        try:
+            if base64.b64encode(base64.b64decode(string)) == string:
+                return True
+        except binascii.Error:
+            return False
 
 
 class MetaDataExtractorFactory:
