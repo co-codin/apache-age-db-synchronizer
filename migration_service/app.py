@@ -105,6 +105,7 @@ async def synchronize(migration_request: str, channel: PikaChannel):
     )
     migration_pattern = MigrationPattern(**migration_request['migration_pattern'])
     source_registry_guid = migration_request['source_registry_guid']
+    model = migration_request['model']
 
     async with db_session() as session:
         with ag_session() as age_session:
@@ -120,7 +121,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
                         'conn_string': migration_in.conn_string,
                         'graph_migration': graph_migration.dict(),
                         'source_registry_guid': source_registry_guid,
-                        'object_name': migration_in.object_name
+                        'object_name': migration_in.object_name,
+                        'model': model
                     }
                 )
             )
