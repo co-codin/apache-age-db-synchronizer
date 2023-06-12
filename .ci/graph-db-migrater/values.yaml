@@ -61,6 +61,8 @@ service:
 ingress:
   enabled: true
   className: ""
+  labels:
+    openapi: "true"
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/enable-opentelemetry: "true"
