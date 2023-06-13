@@ -80,7 +80,6 @@ class PostgresExtractor(MetadataExtractor):
                         ns_to_tables[ns].add(table_name)
                     except KeyError:
                         ns_to_tables[ns] = {table_name}
-
                 return ns_to_tables
 
     async def extract_table_name(self, table_name: str) -> dict[str, set[str]]:
@@ -139,10 +138,9 @@ class PostgresExtractor(MetadataExtractor):
 
     @staticmethod
     def is_b64(string: str) -> bool:
-        try:
-            if base64.b64encode(base64.b64decode(string)) == string:
-                return True
-        except binascii.Error:
+        if base64.b64encode(base64.b64decode(string)) == string:
+            return True
+        else:
             return False
 
 

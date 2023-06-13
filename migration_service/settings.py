@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     age_connection_string: str = 'postgresql://postgres:dwh@graphdb.lan:5432/postgres'
 
     # Service's urls
-    api_iam = 'http://iam.lan:8000'
+    api_iam: str = 'http://iam.lan:8000'
 
     # RabbitMQ constants
     mq_connection_string: str = 'amqp://dwh:dwh@rabbit.lan:5672'

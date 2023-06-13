@@ -59,8 +59,8 @@ class PikaChannel:
     async def basic_ack(self, delivery_tag: int):
         self._channel.basic_ack(delivery_tag)
 
-    async def basic_reject(self, delivery_tag: int):
-        self._channel.basic_reject(delivery_tag)
+    async def basic_reject(self, delivery_tag: int, requeue: bool):
+        self._channel.basic_reject(delivery_tag, requeue=requeue)
 
     async def basic_publish(self, exchange: str, routing_key: str, body: bytes):
         self._channel.basic_publish(exchange, routing_key, body)
@@ -97,9 +97,8 @@ class PikaChannel:
                     raise fut.exception()
 
                 delivery_tag, body = msg.result()
-                yield body
+                yield delivery_tag, body
 
-                await self.basic_ack(delivery_tag)
         except AMQPError as amqp_err:
             logger.error(amqp_err)
         finally:
