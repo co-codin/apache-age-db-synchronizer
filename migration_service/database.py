@@ -50,5 +50,5 @@ def check_on_conn_alive():
     try:
         with ag.connection.cursor() as cur:
             cur.execute('select 1')
-    except psycopg2.InterfaceError:
+    except psycopg2.OperationalError:
         ag = age.connect(dsn=settings.age_connection_string)
