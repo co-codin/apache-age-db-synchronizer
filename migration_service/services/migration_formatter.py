@@ -120,7 +120,6 @@ class ApplyMigrationFormatter(MigrationFormatter):
 
     def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
-        logger.info(f"{table.new_name} fk count = {fk_count}")
         if fk_count == 0:
             hub = HubToCreate(name=table.new_name, db=table.db)
             apply_schema.hubs_to_create.append(hub)

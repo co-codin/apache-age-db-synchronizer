@@ -1,5 +1,3 @@
-import binascii
-
 import psycopg
 import base64
 

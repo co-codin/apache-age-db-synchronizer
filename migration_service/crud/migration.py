@@ -56,9 +56,6 @@ async def add_migration(
         tables_to_alter = graph_db_ns_to_table[ns] & db_tables
 
         logger.info(f'ns: {ns}')
-        logger.info(f'tables to create: {tables_to_create}')
-        logger.info(f'tables to alter: {tables_to_alter}')
-        logger.info(f'tables to delete: {tables_to_delete}')
 
         schema_name = ns.rsplit('.', maxsplit=1)[1]
         schema = migrations.Schema(name=schema_name, migration_guid=guid)
@@ -82,7 +79,6 @@ async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) ->
 
     if migration is not None:
         logger.info(f"migration name: {migration.name}")
-        logger.info(f"migration created_at: {migration.created_at}")
         formatted_migration = MigrationOutFormatter(migration).format()
         return formatted_migration
     else:
@@ -120,14 +116,8 @@ async def _alter_tables(
         None, get_graph_db_table_col_type, db_source, schema.name, table_names, age_session
     )
 
-    logger.info(f'db records to alter: {db_records}')
-    logger.info(f'graph_db records to alter: {graph_db_records}')
-
     dataclass_db_tables = _create_dataclass_tables(db_records)
     dataclass_graph_db_tables = _create_dataclass_tables(graph_db_records)
-
-    logger.info(f'dataclass db tables to alter: {dataclass_db_tables}')
-    logger.info(f'dataclass graph_db tables to alter: {dataclass_graph_db_tables}')
 
     _do_tables_altering(dataclass_db_tables, dataclass_graph_db_tables, schema)
 
