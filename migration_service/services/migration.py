@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 async def apply_migration(
         migration_pattern: MigrationPattern, session: SQLAlchemyAsyncSession, age_session
 ) -> str:
+    logger.info('Applying migration...')
     last_migration = await select_last_migration_tables_fields(session)
     if not last_migration:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)

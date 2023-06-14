@@ -1,4 +1,5 @@
 import json
+import logging
 
 from enum import Enum
 
@@ -12,6 +13,9 @@ from migration_service.database import ag_session
 from migration_service.mq import PikaChannel
 from migration_service.services.migration import apply_migration
 from migration_service.settings import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class MigrationRequestStatus(Enum):
@@ -39,6 +43,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
             await apply_migration(migration_pattern, session, age_session)
             graph_migration = await select_migration(session, guid)
 
+            logger.info('Migration request was processed')
+            logger.info('Sending result...')
             await channel.basic_publish(
                 exchange=settings.migration_exchange,
                 routing_key='result',

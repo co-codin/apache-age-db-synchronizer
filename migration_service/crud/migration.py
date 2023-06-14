@@ -26,6 +26,7 @@ async def add_migration(
         session: SQLAlchemyAsyncSession,
         age_session: Age
 ) -> str:
+    logger.info('Adding migration...')
     metadata_extractor = MetaDataExtractorFactory.build(conn_string=migration_in.conn_string)
     loop = asyncio.get_running_loop()
 
@@ -72,6 +73,7 @@ async def add_migration(
 
 
 async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) -> MigrationOut:
+    logger.info('Selecting migration...')
     if guid:
         migration = await _select_migration_tables_fields_by_guid(guid, session)
     else:
