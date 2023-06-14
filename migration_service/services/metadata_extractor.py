@@ -75,11 +75,9 @@ class PostgresExtractor(MetadataExtractor):
                     table_name = res[1]
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns].add(table_name)
+                        ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns] = {table_name}
+                        ns_to_tables[ns] = {table_name}
                 return ns_to_tables
 
     async def extract_table_name(self, table_name: str) -> dict[str, set[str]]:
@@ -102,11 +100,9 @@ class PostgresExtractor(MetadataExtractor):
                     table_name = res[1]
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns].add(table_name)
+                        ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns] = {table_name}
+                        ns_to_tables[ns] = {table_name}
                 return ns_to_tables
 
     async def extract_table_col_type(self, table_names: Set[str], ns: str) -> list[tuple[str, str, str, str]]:
