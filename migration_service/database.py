@@ -1,4 +1,5 @@
 import age
+import psycopg2
 
 from age import Age
 from contextlib import asynccontextmanager, contextmanager
@@ -36,8 +37,18 @@ async def db_session() -> AsyncSession:
 @contextmanager
 def ag_session() -> Age:
     try:
+        check_on_conn_alive()
         yield ag
         ag.commit()
     except Exception as exc:
         ag.rollback()
         raise exc
+
+
+def check_on_conn_alive():
+    global ag
+    try:
+        with ag.connection.cursor() as cur:
+            cur.execute('select 1')
+    except psycopg2.InterfaceError:
+        ag = age.connect(dsn=settings.age_connection_string)

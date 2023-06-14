@@ -29,7 +29,7 @@ alter_nodes_query_delete_fields = """
                                   MATCH (node {{ name: node_record.name }}) 
                                   
                                   WITH node_record.fields_to_delete as fields_to_delete, node 
-                                  UNWIND fields_to_delete as field " 
+                                  UNWIND fields_to_delete as field 
                                   
                                   MATCH (node)-[:ATTR]->(f:Field {{ db: field }}) 
                                   DETACH DELETE f
