@@ -112,10 +112,7 @@ class ApplyMigrationFormatter(MigrationFormatter):
         for schema in self._migration.schemas:
             for table in schema.tables:
                 for field in table.fields:
-                    if field.new_name and (
-                            self._pk_pattern_compiled.search(field.new_name)
-                            or self._fk_pattern_compiled.search(field.new_name)
-                    ):
+                    if field.new_name and self._pk_pattern_compiled.search(field.new_name):
                         field.is_key = True
 
     def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
