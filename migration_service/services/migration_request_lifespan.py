@@ -64,6 +64,7 @@ async def synchronize(migration_request: str, channel: PikaChannel):
 async def set_synchronizing_off(migration_request: str, channel: PikaChannel):
     migration_request = json.loads(migration_request)
     source_registry_guid = migration_request['source_registry_guid']
+    object_guid = migration_request['object_guid']
 
     await channel.basic_publish(
         exchange=settings.migration_exchange,
@@ -71,7 +72,8 @@ async def set_synchronizing_off(migration_request: str, channel: PikaChannel):
         body=json.dumps(
             {
                 'status': MigrationRequestStatus.FAILURE.value,
-                'source_registry_guid': source_registry_guid
+                'source_registry_guid': source_registry_guid,
+                'object_guid': object_guid
             }
         )
     )
