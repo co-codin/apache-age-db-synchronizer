@@ -33,12 +33,18 @@ build-migrations:
   script:
     - /kaniko/executor --dockerfile=.ci/Dockerfile.migrations --context=dir://. --destination=$DOCKER_REPO/$CI_PROJECT_NAME-migrations:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
 
-.deploy:
+deploy:
   stage: deploy
   image:
     name: alpine/helm:3.11.2
     entrypoint:
       - ""
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"
+    - when: never
+  environment:
+    name: $CI_COMMIT_REF_SLUG
+    url: https://$CI_COMMIT_REF_SLUG.smartdwh.k8s.bi.n3zdrav.ru
   before_script:
     - mkdir -p /root/.kube
     - echo $KUBE_CONFIG | base64 -d > /root/.kube/config
@@ -65,31 +71,3 @@ build-migrations:
       --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 
       $CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME ./.ci/$CI_PROJECT_NAME -f .ci/$CI_PROJECT_NAME/updated-values.yaml
-
-
-deploy-refactor-ci:
-  extends: .deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == "refactor-ci" && $CI_PIPELINE_SOURCE != "schedule"
-    - when: never
-  environment:
-    name: refactor-ci
-    url: https://$CI_COMMIT_REF_SLUG.smartdwh.k8s.bi.n3zdrav.ru
-
-deploy-dev:
-  extends: .deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE != "schedule"
-    - when: never
-  environment:
-    name: dev
-    url: https://dev.smartdwh.k8s.bi.n3zdrav.ru
-
-deploy-test:
-  extends: .deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE != "schedule"
-    - when: never
-  environment:
-    name: test
-    url: https://test.smartdwh.k8s.bi.n3zdrav.ru
