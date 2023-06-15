@@ -16,8 +16,6 @@ build-image:
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  environment:
-    name: dev
   before_script:
     - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
   script:
