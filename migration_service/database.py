@@ -13,7 +13,8 @@ from migration_service.settings import settings
 
 engine = create_async_engine(
     settings.db_connection_string,
-    echo=settings.debug
+    echo=settings.debug,
+    pool_pre_ping=True
 )
 
 
