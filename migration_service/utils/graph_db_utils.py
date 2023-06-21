@@ -13,16 +13,16 @@ def check_graph_created(graph_name: str, age_session: Age):
             age_session.connection.commit()
 
 
-def set_graph(graph_name: str, age_session: Age) -> Age:
+def set_graph(graph_name: str, age_session: Age):
     check_graph_created(graph_name, age_session)
     age_session.graphName = graph_name
-    return age_session
 
 
 def get_graph_db_tables(db_namespaces: set[str], age_session: Age) -> dict[str, set[str]]:
     graph_to_tables: dict[str, set[str]] = {}
     for db_ns in db_namespaces:
-        ag = set_graph(db_ns, age_session)
+        # set_graph(db_ns, age_session)
+        ag = age_session.setGraph(db_ns)
         cursor = ag.execCypher(
             """
             MATCH (obj) 
@@ -37,7 +37,8 @@ def get_graph_db_tables(db_namespaces: set[str], age_session: Age) -> dict[str, 
 def get_graph_db_table(db_namespaces: set[str], table_name: str, age_session: Age) -> dict[str, set[str]]:
     graph_to_tables: dict[str, set[str]] = {}
     for db_ns in db_namespaces:
-        ag = set_graph(db_ns, age_session)
+        # set_graph(db_ns, age_session)
+        ag = age_session.setGraph(db_ns)
         cursor = ag.execCypher(
             """
             MATCH (obj {name: %s}) 
@@ -53,7 +54,8 @@ def get_graph_db_table(db_namespaces: set[str], table_name: str, age_session: Ag
 def get_graph_db_table_col_type(
         db_source: str, ns: str, table_names: Set[str], age_session: Age
 ) -> list[tuple[str, str, str, str]]:
-    ag = set_graph(f'{db_source}.{ns}', age_session)
+    # set_graph(f'{db_source}.{ns}', age_session)
+    ag = age_session.setGraph(f'{db_source}.{ns}')
     res = []
     for tables_batch in to_batches(table_names):
 
