@@ -113,14 +113,14 @@ class PostgresExtractor(MetadataExtractor):
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT CONCAT(tabs.table_schema, '.', tabs.table_name), tabs.table_name, cols.column_name, cols.data_type "
+                    "SELECT CONCAT(tabs.table_schema, '.', tabs.table_name) as full_name, tabs.table_name, cols.column_name, cols.data_type "
                     "FROM information_schema.columns AS cols "
                     "JOIN information_schema.tables AS tabs "
                     "ON tabs.table_name = cols.table_name "
                     "WHERE tabs.table_name = ANY(%s) "
                     "AND tabs.table_type = 'BASE TABLE' "
                     "AND tabs.table_schema = %s "
-                    "ORDER BY tabs.table_schema, tabs.table_name, cols.column_name",
+                    "ORDER BY full_name",
                     (list(table_names), ns)
                 )
                 records = await cursor.fetchall()
