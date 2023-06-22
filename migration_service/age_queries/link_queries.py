@@ -4,7 +4,7 @@ create_links_query = """
                      WITH {links} as link_batch 
                      UNWIND link_batch as link_record 
 
-                     MERGE (link {{ name: link_record.name }})
+                     MERGE (link:Table {{ name: link_record.name }})
                      SET link.db = link_record.db
 
                      WITH link_record.fields as fields_batch, link
@@ -17,10 +17,10 @@ create_links_with_hubs_query = """
                     WITH {links} as link_batch 
                     UNWIND link_batch as link_record 
 
-                    MERGE (hub1 {{ name: link_record.main_link.ref_table }}) 
-                    MERGE (hub2 {{ name: link_record.paired_link.ref_table }}) 
+                    MERGE (hub1:Table {{ name: link_record.main_link.ref_table }}) 
+                    MERGE (hub2:Table {{ name: link_record.paired_link.ref_table }}) 
                     
-                    MERGE (link {{ name: link_record.name }})
+                    MERGE (link:Table {{ name: link_record.name }})
                     SET link.db = link_record.db
 
                     CREATE (hub1)-[:LINK {{on: [link_record.main_link.ref_table_pk, link_record.main_link.fk] }}]->(link)-[:LINK {{ on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk] }}]->(hub2) 
@@ -36,7 +36,7 @@ delete_links_query = """
                      WITH {nodes} as link_batch  
                      UNWIND link_batch as link_name  
 
-                     MATCH (e1:Entity)-[:LINK]->(main_link:Link {{ name: link_name, main:'True' }})-[:LINK]->(e2:Entity)-[:LINK]->(paired_link:Link {{ name: link_name, main: 'False' }})-[:LINK]->(e1:Entity)  
+                     MATCH (e1:Table)-[:LINK]->(main_link:Link {{ name: link_name, main:'True' }})-[:LINK]->(e2:Table)-[:LINK]->(paired_link:Link {{ name: link_name, main: 'False' }})-[:LINK]->(e1:Table)  
 
                      OPTIONAL MATCH (main_link)-[:ATTR]->(mlf:Field)  
                      OPTIONAL MATCH (paired_link)-[:ATTR]->(plf:Field)  

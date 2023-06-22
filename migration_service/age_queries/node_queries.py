@@ -4,7 +4,7 @@ delete_nodes_query = """
                      WITH {nodes} as node_batch 
                      UNWIND node_batch as node_name 
                      
-                     MATCH (node {{ name: node_name }}) 
+                     MATCH (node:Table {{ name: node_name }}) 
                      OPTIONAL MATCH (node)-[:ATTR]->(f:Field)  
 
                      DETACH DELETE node, f
@@ -15,7 +15,7 @@ alter_nodes_query_create_fields = """
                                   WITH {nodes} as node_batch 
                                   UNWIND node_batch as node_record 
                                   
-                                  MATCH (node {{ name: node_record.name }}) 
+                                  MATCH (node:Table {{ name: node_record.name }}) 
                                   
                                   WITH node_record.fields_to_create as fields_to_create, node 
                                   UNWIND fields_to_create as field 
@@ -26,12 +26,12 @@ alter_nodes_query_delete_fields = """
                                   WITH {nodes} as node_batch 
                                   UNWIND node_batch as node_record 
                                   
-                                  MATCH (node {{ name: node_record.name }}) 
+                                  MATCH (node:Table {{ name: node_record.name }}) 
                                   
                                   WITH node_record.fields_to_delete as fields_to_delete, node 
                                   UNWIND fields_to_delete as field 
                                   
-                                  MATCH (node)-[:ATTR]->(f:Field {{ db: field }}) 
+                                  MATCH (node:Table)-[:ATTR]->(f:Field {{ db: field }}) 
                                   DETACH DELETE f
 """
 
@@ -40,12 +40,12 @@ alter_nodes_query_alter_fields = """
                                  WITH {nodes} as node_batch 
                                  UNWIND node_batch as node_record 
                                  
-                                 MATCH (node {{ name: node_record.name }}) 
+                                 MATCH (node:Table {{ name: node_record.name }}) 
                                  
                                  WITH node_record.fields_to_alter as fields_to_alter, node 
                                  UNWIND fields_to_alter as field 
                                  
-                                 MATCH (node)-[:ATTR]->(f:Field {{ db: field.name }}) 
+                                 MATCH (node:Table)-[:ATTR]->(f:Field {{ db: field.name }}) 
                                  SET f.dbtype=field.new_type
 """
 

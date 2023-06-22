@@ -4,9 +4,9 @@ create_sats_with_hubs_query = """
                 WITH {sats} as sat_batch 
                 UNWIND sat_batch as sat_record 
 
-                MERGE (node {{ name: sat_record.link.ref_table }}) 
+                MERGE (node:Table {{ name: sat_record.link.ref_table }}) 
                 
-                MERGE (sat {{ name: sat_record.name }})
+                MERGE (sat:Table {{ name: sat_record.name }})
                 SET sat.db = sat_record.db 
                 
                 CREATE (node)-[:SAT {{on: [sat_record.link.ref_table_pk, sat_record.link.fk] }}]->(sat)
@@ -21,7 +21,7 @@ create_sats_query = """
                 WITH {sats} as sat_batch 
                 UNWIND sat_batch as sat_record 
 
-                MERGE (sat {{name: sat_record.name, db: sat_record.db}})
+                MERGE (sat:Table {{name: sat_record.name, db: sat_record.db}})
 
                 WITH sat_record.fields as fields_batch, sat 
                 UNWIND fields_batch as field 
