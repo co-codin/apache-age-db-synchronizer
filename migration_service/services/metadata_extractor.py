@@ -19,7 +19,7 @@ class MetadataExtractor(ABC):
         ...
 
     @abstractmethod
-    async def extract_table_name(self, table_name: str) -> dict[str, set[str]]:
+    async def extract_table_name(self, table_name: str, db_path: str | None) -> dict[str, set[str]]:
         ...
 
     @abstractmethod
@@ -82,7 +82,11 @@ class PostgresExtractor(MetadataExtractor):
                             ns_to_tables[ns] = {table_name}
                 return ns_to_tables
 
-    async def extract_table_name(self, table_name: str) -> dict[str, set[str]]:
+    async def extract_table_name(self, table_name: str, db_path: str | None) -> dict[str, set[str]]:
+        if db_path:
+            source, schema, name = db_path.split('.', maxsplit=2)
+        else:
+            source, schema, name = None, None, table_name
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
@@ -91,7 +95,7 @@ class PostgresExtractor(MetadataExtractor):
                     from information_schema.tables
                     where table_name = %s;
                     """,
-                    (table_name, )
+                    (name, )
                 )
                 result = await cursor.fetchall()
                 ns_to_tables: dict[str, set[str]] = {}
@@ -107,6 +111,9 @@ class PostgresExtractor(MetadataExtractor):
                     except KeyError:
                         if table_schema == 'dv_raw':
                             ns_to_tables[ns] = {table_name}
+
+                if not ns_to_tables and source and schema:
+                    ns_to_tables[f'{source}.{schema}'] = set()
                 return ns_to_tables
 
     async def extract_table_col_type(self, table_names: Set[str], ns: str) -> list[tuple[str, str, str, str]]:

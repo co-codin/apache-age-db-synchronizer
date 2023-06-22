@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class MigrationIn(BaseModel):
     name: str
     conn_string: str
-    object_name: str | None
+    object_name: str | None = None
+    object_db_path: str | None = None
 
 
 class SchemaOut(BaseModel):

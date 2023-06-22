@@ -5,7 +5,7 @@ create_hubs_query = """
                     WITH {hubs} as hub_batch
                     UNWIND hub_batch as hub_record
                     
-                    MERGE (hub:Entity {{ name: hub_record.name }})
+                    MERGE (hub:Table {{ name: hub_record.name }})
                     SET hub.db = hub_record.db
                     
                     WITH hub_record.fields as field_batch, hub

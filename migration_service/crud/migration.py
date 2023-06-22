@@ -30,8 +30,10 @@ async def add_migration(
     metadata_extractor = MetaDataExtractorFactory.build(conn_string=migration_in.conn_string)
     loop = asyncio.get_running_loop()
 
-    if migration_in.object_name:
-        db_ns_to_table = await metadata_extractor.extract_table_name(migration_in.object_name)
+    if migration_in.object_name or migration_in.object_db_path:
+        db_ns_to_table = await metadata_extractor.extract_table_name(
+            table_name=migration_in.object_name, db_path=migration_in.object_db_path
+        )
         graph_db_ns_to_table = await loop.run_in_executor(
             None, get_graph_db_table, db_ns_to_table.keys(), migration_in.object_name, age_session
         )
@@ -137,7 +139,8 @@ def _do_tables_altering(
     for db_table, graph_db_table in zip(dataclass_db_tables, dataclass_graph_db_tables):
         logger.info(f'db table name is {db_table.name}')
         logger.info(f'graph db table name is {graph_db_table.name}')
-
+        if db_table.name != graph_db_table.name:
+            ...
         assert db_table.name == graph_db_table.name
         if db_table == graph_db_table:
             continue

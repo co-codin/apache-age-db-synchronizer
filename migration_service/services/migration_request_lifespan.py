@@ -30,7 +30,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
         **{
             'name': migration_request['name'],
             'conn_string': migration_request['conn_string'],
-            'object_name': migration_request['object_name']
+            'object_name': migration_request['object_name'],
+            'object_db_path': migration_request['object_db_path']
         }
     )
     migration_pattern = MigrationPattern(**migration_request['migration_pattern'])
