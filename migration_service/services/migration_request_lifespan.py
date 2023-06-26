@@ -56,6 +56,7 @@ async def synchronize(migration_request: str, channel: PikaChannel):
                         'graph_migration': graph_migration.dict(),
                         'source_registry_guid': source_registry_guid,
                         'object_name': migration_in.object_name,
+                        'object_guid': migration_request['object_guid'],
                         'model': model
                     }
                 )
