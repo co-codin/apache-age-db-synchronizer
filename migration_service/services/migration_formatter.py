@@ -99,12 +99,12 @@ class ApplyMigrationFormatter(MigrationFormatter):
                     table_to_alter = self._format_table_to_alter(table)
                     fk_count = table.fk_count(self._fk_pattern_compiled)
 
-                    if fk_count == 0:
-                        apply_schema.hubs_to_alter.append(table_to_alter)
-                    elif fk_count == 1:
+                    if fk_count == 1:
                         apply_schema.sats_to_alter.append(table_to_alter)
                     elif fk_count == 2:
                         apply_schema.links_to_alter.append(table_to_alter)
+                    else:
+                        apply_schema.hubs_to_alter.append(table_to_alter)
             apply_migration.schemas.append(apply_schema)
         return apply_migration
 
@@ -117,11 +117,7 @@ class ApplyMigrationFormatter(MigrationFormatter):
 
     def _format_table_to_create(self, table: Table, apply_schema: ApplySchema):
         fk_count = table.fk_count(self._fk_pattern_compiled)
-        if fk_count == 0:
-            hub = HubToCreate(name=table.new_name, db=table.db)
-            apply_schema.hubs_to_create.append(hub)
-            self._add_fields(hub, table.fields, pk_pattern=self._pk_pattern_compiled)
-        elif fk_count == 1:
+        if fk_count == 1:
             sat = SatToCreate(name=table.new_name, db=table.db)
             apply_schema.sats_to_create.append(sat)
             self._add_fields(
@@ -131,6 +127,10 @@ class ApplyMigrationFormatter(MigrationFormatter):
             link = LinkToCreate(name=table.new_name, db=table.db)
             apply_schema.links_to_create.append(link)
             self._add_fields(link, table.fields, pk_pattern=self._pk_pattern_compiled)
+        else:
+            hub = HubToCreate(name=table.new_name, db=table.db)
+            apply_schema.hubs_to_create.append(hub)
+            self._add_fields(hub, table.fields, pk_pattern=self._pk_pattern_compiled)
 
     @staticmethod
     def _format_table_to_delete(table: Table, apply_schema: ApplySchema):

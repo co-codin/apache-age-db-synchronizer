@@ -9,7 +9,7 @@ create_sats_with_hubs_query = """
                 MERGE (sat:Table {{ name: sat_record.name }})
                 SET sat.db = sat_record.db 
                 
-                CREATE (node)-[:SAT {{on: [sat_record.link.ref_table_pk, sat_record.link.fk] }}]->(sat)
+                CREATE (node)-[:ONE_TO_MANY {{on: [sat_record.link.ref_table_pk, sat_record.link.fk] }}]->(sat)-[:MANY_TO_ONE {{on: [sat_record.link.fk, sat_record.link.ref_table_pk] }}]->(node)
 
                 WITH sat_record.fields as fields_batch, sat 
                 UNWIND fields_batch as field 
