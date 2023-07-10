@@ -50,6 +50,9 @@ def check_on_conn_alive():
     global ag
     try:
         with ag.connection.cursor() as cur:
-            cur.execute("set schema 'ag_catalog'")
-    except psycopg2.OperationalError:
+            cur.execute("select 1")
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
         ag = age.connect(dsn=settings.age_connection_string)
+    finally:
+        with ag.connection.cursor() as cur:
+            cur.execute("set schema 'ag_catalog'")

@@ -68,14 +68,14 @@ async def set_synchronizing_off(migration_request: str, channel: PikaChannel):
     source_registry_guid = migration_request['source_registry_guid']
     object_guid = migration_request['object_guid']
 
+    failure_synch_dict = {
+        'status': MigrationRequestStatus.FAILURE.value,
+        'source_registry_guid': source_registry_guid,
+        'object_guid': object_guid
+    }
+    logger.info(f"Sending: {failure_synch_dict} to data catalog")
     await channel.basic_publish(
         exchange=settings.migration_exchange,
         routing_key='result',
-        body=json.dumps(
-            {
-                'status': MigrationRequestStatus.FAILURE.value,
-                'source_registry_guid': source_registry_guid,
-                'object_guid': object_guid
-            }
-        )
+        body=json.dumps(failure_synch_dict)
     )
