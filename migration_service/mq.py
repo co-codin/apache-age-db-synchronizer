@@ -128,12 +128,15 @@ async def create_channel() -> PikaChannel:
     loop = asyncio.get_running_loop()
     conn = await create_connection()
 
-    fut = loop.create_future()
-    conn.channel(on_open_callback=lambda ch: fut.set_result(ch))
-    channel = await fut
-
     try:
-        yield PikaChannel(channel)
+        fut = loop.create_future()
+        conn.channel(on_open_callback=lambda ch: fut.set_result(ch))
+        channel = await fut
+
+        try:
+            yield PikaChannel(channel)
+        finally:
+            channel.close()
+
     finally:
-        channel.close()
         PikaChannel.conn = None
