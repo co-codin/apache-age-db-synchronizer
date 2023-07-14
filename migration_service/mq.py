@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class PikaChannel:
-    conn = None
+    conn: AsyncioConnection | None = None
 
     def __init__(self, channel: Channel):
         self._channel = channel
@@ -128,15 +128,13 @@ async def create_channel() -> PikaChannel:
     loop = asyncio.get_running_loop()
     conn = await create_connection()
 
+    fut = loop.create_future()
+    conn.channel(on_open_callback=lambda ch: fut.set_result(ch))
+    channel = await fut
+
     try:
-        fut = loop.create_future()
-        conn.channel(on_open_callback=lambda ch: fut.set_result(ch))
-        channel = await fut
-
-        try:
-            yield PikaChannel(channel)
-        finally:
-            channel.close()
-
+        yield PikaChannel(channel)
     finally:
         PikaChannel.conn = None
+        if channel.is_open:
+            channel.close()
