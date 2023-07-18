@@ -10,7 +10,7 @@ create_links_query = """
                      WITH link_record.fields as fields_batch, link
                      UNWIND fields_batch as field  
 
-                     CREATE (link)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}}) 
+                     CREATE (link)-[:ATTR]->(:Field {{name: field.name, db: link.db + '.' + field.name, attrs: [], dbtype: field.db_type}}) 
 """
 
 create_links_with_hubs_query = """
@@ -26,21 +26,10 @@ create_links_with_hubs_query = """
                     CREATE (hub1)-[:ONE_TO_MANY {{on: [link_record.main_link.ref_table_pk, link_record.main_link.fk] }}]->(link)-[:MANY_TO_ONE {{ on: [link_record.paired_link.fk, link_record.paired_link.ref_table_pk] }}]->(hub2) 
                     CREATE (hub2)-[:ONE_TO_MANY {{on: [link_record.paired_link.ref_table_pk, link_record.paired_link.fk] }}]->(link)-[:MANY_TO_ONE {{ on: [link_record.main_link.fk, link_record.main_link.ref_table_pk] }}]->(hub1) 
 
-                    WITH link_record.fields as fields_batch, link, link
+                    WITH link_record.fields as fields_batch, link
                     UNWIND fields_batch as field 
 
-                    CREATE (link)-[:ATTR]->(:Field {{ name: field.name, db: field.name, attrs: [], dbtype: field.db_type }}) 
-"""
-
-delete_links_query = """
-                     WITH {nodes} as link_batch  
-                     UNWIND link_batch as link_name  
-
-                     MATCH (e1:Table)-[:MANY_TO_MANY]->(main_link:Link {{ name: link_name, main:'True' }})-[:MANY_TO_MANY]->(e2:Table)-[:MANY_TO_MANY]->(paired_link:Link {{ name: link_name, main: 'False' }})-[:MANY_TO_MANY]->(e1:Table)  
-
-                     OPTIONAL MATCH (main_link)-[:ATTR]->(mlf:Field)  
-                     OPTIONAL MATCH (paired_link)-[:ATTR]->(plf:Field)  
-                     DETACH DELETE mlf, plf, main_link, paired_link
+                    CREATE (link)-[:ATTR]->(:Field {{ name: field.name, db: link.db + '.' + field.name, attrs: [], dbtype: field.db_type }}) 
 """
 
 

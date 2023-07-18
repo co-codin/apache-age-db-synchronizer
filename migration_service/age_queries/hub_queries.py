@@ -10,7 +10,7 @@ create_hubs_query = """
                     
                     WITH hub_record.fields as field_batch, hub
                     UNWIND field_batch as field
-                    CREATE (hub)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}})
+                    CREATE (hub)-[:ATTR]->(:Field {{name: field.name, db: hub.db + '.' + field.name, attrs: [], dbtype: field.db_type}})
 """
 
 

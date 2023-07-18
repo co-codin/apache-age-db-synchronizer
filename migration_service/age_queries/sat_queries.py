@@ -14,7 +14,7 @@ create_sats_with_hubs_query = """
                 WITH sat_record.fields as fields_batch, sat 
                 UNWIND fields_batch as field 
 
-                CREATE (sat)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}}) 
+                CREATE (sat)-[:ATTR]->(:Field {{name: field.name, db: sat.db + '.' + field.name, attrs: [], dbtype: field.db_type}}) 
 """
 
 create_sats_query = """
@@ -26,7 +26,7 @@ create_sats_query = """
                 WITH sat_record.fields as fields_batch, sat 
                 UNWIND fields_batch as field 
 
-                CREATE (sat)-[:ATTR]->(:Field {{name: field.name, db: field.name, attrs: [], dbtype: field.db_type}}) 
+                CREATE (sat)-[:ATTR]->(:Field {{name: field.name, db: sat.db + '.' + field.name, attrs: [], dbtype: field.db_type}}) 
 """
 
 
