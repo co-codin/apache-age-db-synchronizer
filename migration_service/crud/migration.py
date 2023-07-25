@@ -71,7 +71,7 @@ async def add_migration(
 
     session.add(migration)
     await session.commit()
-    return guid
+    return migration.guid
 
 
 async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) -> MigrationOut:
