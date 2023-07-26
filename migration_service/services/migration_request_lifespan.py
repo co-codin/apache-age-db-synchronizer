@@ -57,7 +57,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
                         'source_registry_guid': source_registry_guid,
                         'object_name': migration_in.object_name,
                         'object_guid': migration_request['object_guid'],
-                        'model': model
+                        'model': model,
+                        'sync_type': migration_request['sync_type']
                     }
                 )
             )
@@ -71,7 +72,8 @@ async def set_synchronizing_off(migration_request: str, channel: PikaChannel):
     failure_synch_dict = {
         'status': MigrationRequestStatus.FAILURE.value,
         'source_registry_guid': source_registry_guid,
-        'object_guid': object_guid
+        'object_guid': object_guid,
+        'sync_type': migration_request['sync_type']
     }
     logger.info(f"Sending: {failure_synch_dict} to data catalog")
     await channel.basic_publish(
