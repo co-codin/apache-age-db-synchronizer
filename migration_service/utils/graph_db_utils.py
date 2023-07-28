@@ -51,9 +51,9 @@ def get_graph_db_table_col_type(
             """
             MATCH (obj:Table)-[:ATTR]->(f:Field) 
             WHERE obj.name IN {} 
-            RETURN obj.db, obj.name, f.db, f.dbtype 
+            RETURN obj.db, obj.name, f.name, f.dbtype 
             """.format(params),
-            cols=['object_db', 'object_name', 'field_db', 'field_db_type']
+            cols=['object_db', 'object_name', 'field_name', 'field_db_type']
         )
         res.extend(
             [(row[0], row[1], row[2], row[3]) for row in cursor]

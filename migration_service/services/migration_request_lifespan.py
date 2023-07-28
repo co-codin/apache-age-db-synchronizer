@@ -41,8 +41,8 @@ async def synchronize(migration_request: str, channel: PikaChannel):
     async with db_session() as session:
         with ag_session() as age_session:
             guid = await add_migration(migration_in, session, age_session)
-            await apply_migration(migration_pattern, session, age_session)
-            graph_migration = await select_migration(session, guid)
+            await apply_migration(guid, migration_pattern, session, age_session)
+            graph_migration = await select_migration(guid, session)
 
             logger.info('Migration request was processed')
             logger.info('Sending result...')

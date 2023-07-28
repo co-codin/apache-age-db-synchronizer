@@ -74,12 +74,9 @@ async def add_migration(
     return migration.guid
 
 
-async def select_migration(session: SQLAlchemyAsyncSession, guid: str = None) -> MigrationOut:
+async def select_migration(guid: str, session: SQLAlchemyAsyncSession) -> MigrationOut:
     logger.info('Selecting migration...')
-    if guid:
-        migration = await _select_migration_tables_fields_by_guid(guid, session)
-    else:
-        migration = await select_last_migration_tables_fields(session)
+    migration = await _select_migration_tables_fields_by_guid(guid, session)
 
     if migration is not None:
         logger.info(f"migration name: {migration.name}")
