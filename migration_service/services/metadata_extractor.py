@@ -52,8 +52,9 @@ class PostgresExtractor(MetadataExtractor):
             'timestamp without time zone': 'datetime',
             'timestamp with time zone': 'datetime',
 
-            # 'jsonb': 'json',
-            # 'ARRAY': 'list'
+            'jsonb': 'json',
+            'xml': 'xml',
+            'ARRAY': 'list'
         }
 
     async def extract_table_names(self) -> dict[str, set[str]]:
