@@ -37,7 +37,7 @@ class PostgresExtractor(MetadataExtractor):
             'character': 'str',
             'uuid': 'str',
 
-            'text': 'text',
+            'text': 'str',
 
             'smallint': 'int',
             'integer': 'int',
