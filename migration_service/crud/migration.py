@@ -164,25 +164,6 @@ def _create_fields(fields_to_create: Set[str], db_table: tables.Table, table: mi
         table.fields.append(field)
 
 
-def _alter_fields(
-        fields_to_alter: Set[str], db_table: tables.Table, neo4j_table: tables.Table, table: migrations.Table
-):
-    for f_to_alter in fields_to_alter:
-        db_type = db_table.field_to_type[f_to_alter]
-        graph_db_type = neo4j_table.field_to_type[f_to_alter]
-        if db_type == graph_db_type:
-            continue
-        else:
-            field = migrations.Field(old_name=f_to_alter, new_name=f_to_alter, old_type=graph_db_type, new_type=db_type)
-            table.fields.append(field)
-
-
-def _delete_fields(fields_to_delete: Set[str], neo4j_table: tables.Table, table: migrations.Table):
-    for f_to_delete in fields_to_delete:
-        field = migrations.Field(old_name=f_to_delete, old_type=neo4j_table.field_to_type[f_to_delete])
-        table.fields.append(field)
-
-
 async def _select_migration_tables_fields_by_guid(guid: str, session: SQLAlchemyAsyncSession):
     migration = await session.execute(
         select(migrations.Migration)
