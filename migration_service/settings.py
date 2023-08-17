@@ -3,9 +3,6 @@ from collections import namedtuple
 from pydantic import BaseSettings
 
 
-Neo4jCreds = namedtuple('Neo4jCreds', ['username', 'password'])
-
-
 class Settings(BaseSettings):
     # Uvicorn constants
     port: int = 8081

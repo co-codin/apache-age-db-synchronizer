@@ -2,7 +2,6 @@ psycopg2 == 2.9.3
 alembic == 1.8.1
 ecs-logging == 1.1.0
 pydantic == 1.10.2
-neo4j==5.0.1
 asyncpg == 0.25.0
 fastapi==0.85.0
 pip~=21.2.4
