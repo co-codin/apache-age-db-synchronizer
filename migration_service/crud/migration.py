@@ -165,11 +165,11 @@ def _create_fields(fields_to_create: set[str], db_table: tables.Table, table: mi
 
 
 def _alter_fields(
-        fields_to_alter: set[str], db_table: tables.Table, neo4j_table: tables.Table, table: migrations.Table
+        fields_to_alter: set[str], db_table: tables.Table, graph_table: tables.Table, table: migrations.Table
 ):
     for f_to_alter in fields_to_alter:
         db_type = db_table.field_to_type[f_to_alter]
-        graph_db_type = neo4j_table.field_to_type[f_to_alter]
+        graph_db_type = graph_table.field_to_type[f_to_alter]
         if db_type == graph_db_type:
             continue
         else:
@@ -177,9 +177,9 @@ def _alter_fields(
             table.fields.append(field)
 
 
-def _delete_fields(fields_to_delete: set[str], neo4j_table: tables.Table, table: migrations.Table):
+def _delete_fields(fields_to_delete: set[str], graph_table: tables.Table, table: migrations.Table):
     for f_to_delete in fields_to_delete:
-        field = migrations.Field(old_name=f_to_delete, old_type=neo4j_table.field_to_type[f_to_delete])
+        field = migrations.Field(old_name=f_to_delete, old_type=graph_table.field_to_type[f_to_delete])
         table.fields.append(field)
 
 
