@@ -2,7 +2,7 @@ import logging
 import uuid
 import asyncio
 
-from typing import Union, Set, List, Sequence
+from typing import Sequence
 
 from age import Age
 from fastapi import status, HTTPException
@@ -76,7 +76,7 @@ async def add_migration(
 
 async def select_migration(guid: str, session: SQLAlchemyAsyncSession) -> MigrationOut:
     logger.info('Selecting migration...')
-    migration = await _select_migration_tables_fields_by_guid(guid, session)
+    migration = await select_migration_tables_fields_by_guid(guid, session)
 
     if migration is not None:
         logger.info(f"migration name: {migration.name}")
@@ -87,7 +87,7 @@ async def select_migration(guid: str, session: SQLAlchemyAsyncSession) -> Migrat
 
 
 async def _create_tables(
-        table_names: Set[str], metadata_extractor: MetadataExtractor, schema: migrations.Schema,
+        table_names: set[str], metadata_extractor: MetadataExtractor, schema: migrations.Schema,
 ):
     if not table_names:
         return
@@ -105,7 +105,7 @@ async def _create_tables(
 
 
 async def _alter_tables(
-        table_names: Set[str], metadata_extractor: MetadataExtractor, schema: migrations.Schema, db_source: str,
+        table_names: set[str], metadata_extractor: MetadataExtractor, schema: migrations.Schema, db_source: str,
         age_session: Age
 ):
     if not table_names:
@@ -123,14 +123,14 @@ async def _alter_tables(
     _do_tables_altering(dataclass_db_tables, dataclass_graph_db_tables, schema)
 
 
-async def _delete_tables(table_names: Set[str], schema: migrations.Schema):
+async def _delete_tables(table_names: set[str], schema: migrations.Schema):
     for table in table_names:
         schema.tables.append(migrations.Table(old_name=table, db=f'{schema.name}.{table}'))
 
 
 def _do_tables_altering(
-        dataclass_db_tables: List[tables.Table],
-        dataclass_graph_db_tables: List[tables.Table],
+        dataclass_db_tables: list[tables.Table],
+        dataclass_graph_db_tables: list[tables.Table],
         schema: migrations.Schema
 ):
     for db_table, graph_db_table in zip(dataclass_db_tables, dataclass_graph_db_tables):
@@ -158,13 +158,32 @@ def _do_tables_altering(
             _delete_fields(fields_to_delete, graph_db_table, table)
 
 
-def _create_fields(fields_to_create: Set[str], db_table: tables.Table, table: migrations.Table):
+def _create_fields(fields_to_create: set[str], db_table: tables.Table, table: migrations.Table):
     for f_to_create in fields_to_create:
         field = migrations.Field(new_name=f_to_create, new_type=db_table.field_to_type[f_to_create])
         table.fields.append(field)
 
 
-async def _select_migration_tables_fields_by_guid(guid: str, session: SQLAlchemyAsyncSession):
+def _alter_fields(
+        fields_to_alter: set[str], db_table: tables.Table, neo4j_table: tables.Table, table: migrations.Table
+):
+    for f_to_alter in fields_to_alter:
+        db_type = db_table.field_to_type[f_to_alter]
+        graph_db_type = neo4j_table.field_to_type[f_to_alter]
+        if db_type == graph_db_type:
+            continue
+        else:
+            field = migrations.Field(old_name=f_to_alter, new_name=f_to_alter, old_type=graph_db_type, new_type=db_type)
+            table.fields.append(field)
+
+
+def _delete_fields(fields_to_delete: set[str], neo4j_table: tables.Table, table: migrations.Table):
+    for f_to_delete in fields_to_delete:
+        field = migrations.Field(old_name=f_to_delete, old_type=neo4j_table.field_to_type[f_to_delete])
+        table.fields.append(field)
+
+
+async def select_migration_tables_fields_by_guid(guid: str, session: SQLAlchemyAsyncSession):
     migration = await session.execute(
         select(migrations.Migration)
         .options(
@@ -191,7 +210,7 @@ async def select_last_migration_tables_fields(session: SQLAlchemyAsyncSession):
     return migration.scalars().first()
 
 
-async def _select_last_migration(session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:
+async def _select_last_migration(session: SQLAlchemyAsyncSession) -> migrations.Migration | None:
     last_migration = await session.execute(
         select(migrations.Migration)
         .order_by(migrations.Migration.created_at.desc())
@@ -200,7 +219,7 @@ async def _select_last_migration(session: SQLAlchemyAsyncSession) -> Union[migra
     return last_migration.scalars().first()
 
 
-async def _select_last_migration_by_db_source(db_source: str, session: SQLAlchemyAsyncSession) -> Union[migrations.Migration, None]:
+async def _select_last_migration_by_db_source(db_source: str, session: SQLAlchemyAsyncSession) -> migrations.Migration | None:
     last_migration = await session.execute(
         select(migrations.Migration)
         .where(migrations.Migration.db_source == db_source)
@@ -210,8 +229,8 @@ async def _select_last_migration_by_db_source(db_source: str, session: SQLAlchem
     return last_migration.scalars().first()
 
 
-def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> List[tables.Table]:
-    db_tables: List[tables.Table] = []
+def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> list[tables.Table]:
+    db_tables: list[tables.Table] = []
     if not db_records:
         return db_tables
 

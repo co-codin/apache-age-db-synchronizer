@@ -1,7 +1,7 @@
 import re
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Iterable
+from typing import Iterable
 
 from pydantic import BaseModel
 
@@ -10,11 +10,11 @@ from migration_service.utils.migration_utils import get_highest_table_similarity
 from migration_service.errors import MoreThanTwoFieldsMatchFKPattern
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Table:
     name: str
     db: str
-    field_to_type: Dict[str, str] = field(default_factory=dict)
+    field_to_type: dict[str, str] = field(default_factory=dict)
 
     def __hash__(self):
         return hash((self.name, self.db, self.field_to_type))
@@ -23,7 +23,7 @@ class Table:
 class TableToCreate(BaseModel):
     name: str
     db: str
-    fields: List[FieldToCreate] = []
+    fields: list[FieldToCreate] = []
 
     @property
     def field_name_set(self):
@@ -32,31 +32,31 @@ class TableToCreate(BaseModel):
 
 class TableToAlter(BaseModel):
     name: str
-    fields_to_create: List[FieldToCreate] = []
-    fields_to_alter: List[FieldToAlter] = []
-    fields_to_delete: List[str] = []
+    fields_to_create: list[FieldToCreate] = []
+    fields_to_alter: list[FieldToAlter] = []
+    fields_to_delete: list[str] = []
 
 
 class HubToCreate(TableToCreate):
-    pk: Optional[str]
+    pk: str | None = None
 
 
 class OneWayLink(BaseModel):
-    ref_table_pk: Optional[str]
+    ref_table_pk: str | None = None
     fk: str
-    ref_table: Optional[str]
+    ref_table: str | None = None
 
 
 class SatToCreate(TableToCreate):
-    link: Optional[OneWayLink]
-    pk: Optional[str]
+    link: OneWayLink | None = None
+    pk: str | None = None
 
 
 class LinkToCreate(TableToCreate):
-    main_link: Optional[OneWayLink]
-    paired_link: Optional[OneWayLink]
+    main_link: OneWayLink | None = None
+    paired_link: OneWayLink | None = None
 
-    pk: Optional[str]
+    pk: str | None = None
 
     def match_fks_to_fk_tables(self, fk_pattern: re.Pattern, tables: Iterable[str]):
         for field in self.fields:

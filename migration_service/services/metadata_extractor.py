@@ -1,7 +1,6 @@
 import psycopg
 import base64
 
-from typing import Set, Tuple
 from abc import ABC, abstractmethod
 
 
@@ -23,7 +22,7 @@ class MetadataExtractor(ABC):
         ...
 
     @abstractmethod
-    async def extract_table_col_type(self, table_names: Set[str], ns: str) -> Tuple[str, str]:
+    async def extract_table_col_type(self, table_names: set[str], ns: str) -> tuple[str, str]:
         ...
 
 
@@ -64,7 +63,9 @@ class PostgresExtractor(MetadataExtractor):
                     """
                     select table_schema, table_name
                     from information_schema.tables
-                    where table_type = 'BASE TABLE' and table_schema not in ('pg_catalog', 'information_schema');
+                    where table_schema = 'dv_raw' 
+                    and table_type = 'BASE TABLE' 
+                    and table_schema not in ('pg_catalog', 'information_schema');
                     """
                 )
                 result = await cursor.fetchall()
@@ -72,15 +73,12 @@ class PostgresExtractor(MetadataExtractor):
                 db_source = self._conn_string.rsplit('/', maxsplit=1)[1]
 
                 for res in result:
-                    table_schema = res[0]
-                    table_name = res[1]
+                    table_schema, table_name = res
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns].add(table_name)
+                        ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns] = {table_name}
+                        ns_to_tables[ns] = {table_name}
                 return ns_to_tables
 
     async def extract_table_name(self, table_name: str, db_path: str | None) -> dict[str, set[str]]:
@@ -94,7 +92,7 @@ class PostgresExtractor(MetadataExtractor):
                     """
                     select table_schema, table_name
                     from information_schema.tables
-                    where table_name = %s;
+                    where table_schema = 'dv_raw' and table_name = %s;
                     """,
                     (name, )
                 )
@@ -103,21 +101,18 @@ class PostgresExtractor(MetadataExtractor):
                 db_source = self._conn_string.rsplit('/', maxsplit=1)[1]
 
                 for res in result:
-                    table_schema = res[0]
-                    table_name = res[1]
+                    table_schema, table_name = res
                     ns = f'{db_source}.{table_schema}'
                     try:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns].add(table_name)
+                        ns_to_tables[ns].add(table_name)
                     except KeyError:
-                        if table_schema == 'dv_raw':
-                            ns_to_tables[ns] = {table_name}
+                        ns_to_tables[ns] = {table_name}
 
                 if not ns_to_tables and source and schema:
                     ns_to_tables[f'{source}.{schema}'] = set()
                 return ns_to_tables
 
-    async def extract_table_col_type(self, table_names: Set[str], ns: str) -> list[tuple[str, str, str, str]]:
+    async def extract_table_col_type(self, table_names: set[str], ns: str) -> list[tuple[str, str, str, str]]:
         async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
@@ -148,15 +143,31 @@ class PostgresExtractor(MetadataExtractor):
 
     @staticmethod
     def is_b64(string: str) -> bool:
-        if base64.b64encode(base64.b64decode(string)) == string:
-            return True
-        else:
-            return False
+        return base64.b64encode(base64.b64decode(string)) == string
+
+
+class MongoExtractor(MetadataExtractor):
+    def __init__(self, conn_string: str):
+        super().__init__(conn_string)
+
+    @property
+    def conn_string(self):
+        return self._conn_string
+
+    async def extract_table_names(self) -> dict[str, set[str]]:
+        ...
+
+    async def extract_table_name(self, table_name: str, db_path: str | None) -> dict[str, set[str]]:
+        ...
+
+    async def extract_table_col_type(self, table_names: set[str], ns: str) -> tuple[str, str]:
+        ...
 
 
 class MetaDataExtractorFactory:
     _DRIVER_TO_METADATA_EXTRACTOR_TYPE = {
-        'postgresql': PostgresExtractor
+        'postgresql': PostgresExtractor,
+        'mongodb': MongoExtractor
     }
 
     @classmethod
