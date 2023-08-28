@@ -25,6 +25,10 @@ class MetadataExtractor(ABC):
     async def extract_table_col_type(self, table_names: set[str], ns: str) -> tuple[str, str]:
         ...
 
+    @abstractmethod
+    async def extract_table_count(self) -> int:
+        ...
+
 
 class PostgresExtractor(MetadataExtractor):
     def __init__(self, conn_string: str):
@@ -117,8 +121,8 @@ class PostgresExtractor(MetadataExtractor):
             async with conn.cursor() as cursor:
                 await cursor.execute(
                     "SELECT CONCAT(tabs.table_schema, '.', tabs.table_name) as full_name, tabs.table_name, cols.column_name, cols.data_type "
-                    "FROM information_schema.columns AS cols "
-                    "JOIN information_schema.tables AS tabs "
+                    "FROM information_schema.tables as tabs "
+                    "LEFT OUTER JOIN information_schema.columns as cols "
                     "ON tabs.table_name = cols.table_name "
                     "WHERE tabs.table_name = ANY(%s) "
                     "AND tabs.table_type = 'BASE TABLE' "
@@ -132,6 +136,19 @@ class PostgresExtractor(MetadataExtractor):
                     system_type = self.from_db_type_to_system_type(row[-1])
                     result.append((row[0], row[1], row[2], system_type))
         return result
+
+    async def extract_table_count(self) -> int:
+        async with await psycopg.AsyncConnection.connect(self._conn_string) as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                    """
+                    select count(*)
+                    from information_schema.tables
+                    where table_schema = 'dv_raw';
+                    """,
+                )
+                result = await cursor.fetchall()
+                return result[0][0]
 
     def from_db_type_to_system_type(self, var: str) -> str:
         system_type = self._postgres_to_system_types.get(var, '')

@@ -25,7 +25,7 @@ async def add_migration(
         migration_in: MigrationIn,
         session: SQLAlchemyAsyncSession,
         age_session: Age
-) -> str:
+) -> (str, int):
     logger.info('Adding migration...')
     metadata_extractor = MetaDataExtractorFactory.build(conn_string=migration_in.conn_string)
     loop = asyncio.get_running_loop()
@@ -69,9 +69,10 @@ async def add_migration(
 
         migration.schemas.append(schema)
 
+    count = await metadata_extractor.extract_table_count()
     session.add(migration)
     await session.commit()
-    return migration.guid
+    return migration.guid, count
 
 
 async def select_migration(guid: str, session: SQLAlchemyAsyncSession) -> MigrationOut:
@@ -234,17 +235,14 @@ def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> list[tables
     if not db_records:
         return db_tables
 
-    db = db_records[0][0]
-    name = db_records[0][1]
-    db_tables.append(tables.Table(db=db, name=name))
-
     for record in db_records:
-        if name != record[1]:
-            db = record[0]
-            name = record[1]
+        db = record[0]
+        name = record[1]
+        if not db_tables or db_tables[-1].name != name:
             db_tables.append(tables.Table(db=db, name=name))
 
         field_name = record[2]
         field_type = record[3]
-        db_tables[-1].field_to_type[field_name] = field_type
+        if field_name is not None:
+            db_tables[-1].field_to_type[field_name] = field_type
     return db_tables
