@@ -2,7 +2,7 @@ import re
 import logging
 
 from abc import abstractmethod, ABC
-from typing import Iterable, Optional, Union
+from typing import Iterable
 
 from migration_service.models import migrations, Table, Field
 from migration_service.schemas.migrations import (
@@ -20,7 +20,7 @@ class MigrationFormatter(ABC):
         self._migration = migration
 
     @abstractmethod
-    def format(self) -> Union[MigrationOut, ApplyMigration]:
+    def format(self) -> MigrationOut | ApplyMigration:
         ...
 
     @staticmethod
@@ -140,8 +140,8 @@ class ApplyMigrationFormatter(MigrationFormatter):
     def _add_fields(
             table: TableToCreate,
             fields: Iterable[Field],
-            pk_pattern: Optional[re.Pattern] = None,
-            fk_pattern: Optional[re.Pattern] = None
+            pk_pattern: re.Pattern | None = None,
+            fk_pattern: re.Pattern | None = None
     ):
         possible_pk = None
         pk_count = 0

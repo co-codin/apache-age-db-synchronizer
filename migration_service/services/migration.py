@@ -15,8 +15,7 @@ from migration_service.schemas.migrations import (
 )
 from migration_service.services.migration_formatter import ApplyMigrationFormatter
 
-from migration_service.crud.migration import select_last_migration_tables_fields, \
-    _select_migration_tables_fields_by_guid
+from migration_service.crud.migration import select_migration_tables_fields_by_guid
 from migration_service.utils.migration_utils import (
     get_highest_table_similarity_score, add_to_batches, delete_to_batches, alter_to_batches
 )
@@ -42,7 +41,7 @@ async def apply_migration(
         guid: str, migration_pattern: MigrationPattern, session: SQLAlchemyAsyncSession, age_session
 ) -> str:
     logger.info('Applying migration...')
-    last_migration = await _select_migration_tables_fields_by_guid(guid, session)
+    last_migration = await select_migration_tables_fields_by_guid(guid, session)
     if not last_migration:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
