@@ -244,6 +244,4 @@ def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> list[tables
         field_type = record[3]
         if field_name is not None:
             db_tables[-1].field_to_type[field_name] = field_type
-        else:
-            ...
     return db_tables
