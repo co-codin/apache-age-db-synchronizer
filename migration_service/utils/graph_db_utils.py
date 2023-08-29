@@ -37,12 +37,11 @@ def get_graph_db_table(db_namespaces: set[str], table_name: str, age_session: Ag
 
 
 def get_graph_db_table_col_type(
-        db_source: str, ns: str, table_names: Set[str], age_session: Age
+        db_source: str, ns: str, table_names: set[str], age_session: Age
 ) -> list[tuple[str, str, str, str]]:
     ag = age_session.setGraph(f'{db_source}.{ns}')
     res = []
     for tables_batch in to_batches(table_names):
-
         params = sql.SQL(',').join(map(sql.Literal, tables_batch))
         params = sql.SQL('[{}]').format(params)
         params = params.as_string(ag.connection)
@@ -57,5 +56,17 @@ def get_graph_db_table_col_type(
         )
         res.extend(
             [(row[0], row[1], row[2], row[3]) for row in cursor]
+        )
+
+        cursor = ag.execCypher(
+            """
+            MATCH (obj:Table)
+            WHERE not exists((obj)-[:ATTR]->(:Field)) AND obj.name IN {} 
+            RETURN obj.db, obj.name
+            """.format(params),
+            cols=['object_db', 'object_name']
+        )
+        res.extend(
+            [(row[0], row[1], None, None) for row in cursor]
         )
     return list(sorted(res, key=lambda row: row[0]))
