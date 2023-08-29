@@ -50,14 +50,15 @@ def delete_to_batches(records: Iterable, size: int = 50):
 def add_to_batches(records: Iterable, size: int = 50):
     batches = []
     for rec in records:
-
         fields = rec['fields']
         fields_len = len(fields)
-
-        for ndx in range(0, fields_len, size):
-            field_batch = rec['fields'][ndx:min(ndx + size, fields_len)]
-            item = {**rec, 'fields': field_batch}
-
+        if fields_len:
+            for ndx in range(0, fields_len, size):
+                field_batch = rec['fields'][ndx:min(ndx + size, fields_len)]
+                item = {**rec, 'fields': field_batch}
+                batches.append(item)
+        else:
+            item = {**rec, 'fields': []}
             batches.append(item)
 
         if len(batches) >= size:

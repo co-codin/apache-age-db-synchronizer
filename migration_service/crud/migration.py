@@ -62,7 +62,6 @@ async def add_migration(
 
         schema_name = ns.rsplit('.', maxsplit=1)[1]
         schema = migrations.Schema(name=schema_name, migration_guid=guid)
-
         await _create_tables(tables_to_create, metadata_extractor, schema)
         await _alter_tables(tables_to_alter, metadata_extractor, schema, db_source, age_session)
         await _delete_tables(tables_to_delete, schema)
@@ -245,4 +244,6 @@ def _create_dataclass_tables(db_records: Sequence[Sequence[str]]) -> list[tables
         field_type = record[3]
         if field_name is not None:
             db_tables[-1].field_to_type[field_name] = field_type
+        else:
+            ...
     return db_tables
